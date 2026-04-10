@@ -134,9 +134,15 @@ jobs:
       - name: Rename installer with version tag
         run: |
           $tag = "${{ github.ref_name }}"
-          $src = "Output\ZeusPDF_Setup_v1.0_Windows.exe"
-          $dst = "Output\ZeusPDF_${tag}_Windows.exe"
-          if (Test-Path $src) { Rename-Item $src $dst }
+          $src = Get-ChildItem "Output\*.exe" | Select-Object -First 1
+          if ($src) {
+            $newName = "ZeusPDF_${tag}_Windows.exe"
+            Rename-Item -Path $src.FullName -NewName $newName
+            Write-Host "Renamed to: $newName"
+          } else {
+            Write-Error "No installer EXE found in Output\"
+            exit 1
+          }
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
