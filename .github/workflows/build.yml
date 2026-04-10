@@ -1,0 +1,201 @@
+name: Build Zeus PDF
+
+on:
+  push:
+    tags:
+      - 'v*'          # triggers on v1.0, v1.1, etc.
+  workflow_dispatch:  # manual trigger from GitHub UI
+
+permissions:
+  contents: write     # needed to create releases and upload assets
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────────
+  # macOS Build → DMG
+  # ─────────────────────────────────────────────────────────────────
+  build-mac:
+    name: macOS DMG
+    runs-on: macos-14   # Apple Silicon runner
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate logo assets
+        run: python make_logo.py
+
+      - name: Build with PyInstaller
+        run: |
+          python -m PyInstaller ZeusPDF.spec --noconfirm
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
+
+      - name: Fix PySide6 symlinks
+        run: |
+          APP="dist/Zeus PDF.app"
+          FWDIR="$APP/Contents/Frameworks/PySide6"
+          RESDIR="$APP/Contents/Resources/PySide6"
+          for name in Assistant Designer Linguist; do
+            dot_app="$FWDIR/${name}__dot__app"
+            link_app="$FWDIR/${name}.app"
+            real_app="$RESDIR/${name}.app"
+            if [ -L "$link_app" ] && [ -d "$dot_app" ]; then
+              if [ -d "$real_app" ]; then
+                rm -f "$dot_app/Contents/Info.plist"
+                cp "$real_app/Contents/Info.plist" "$dot_app/Contents/Info.plist" 2>/dev/null || true
+                rm -rf "$dot_app/Contents/Resources"
+                cp -r "$real_app/Contents/Resources" "$dot_app/Contents/Resources" 2>/dev/null || true
+              fi
+              rm "$link_app"
+              cp -r "$dot_app" "$link_app"
+              rm -rf "$dot_app"
+            fi
+          done
+
+      - name: Code sign (ad-hoc)
+        run: |
+          xattr -cr "dist/Zeus PDF.app"
+          codesign --force --deep --sign - "dist/Zeus PDF.app" || true
+
+      - name: Create DMG
+        run: |
+          hdiutil create \
+            -volname "Zeus PDF" \
+            -srcfolder "dist/Zeus PDF.app" \
+            -ov -format UDZO \
+            "dist/ZeusPDF_${{ github.ref_name }}_Mac.dmg"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZeusPDF-Mac
+          path: dist/ZeusPDF_*_Mac.dmg
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────
+  # Windows Build → EXE installer
+  # ─────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Pillow for logo generation
+        run: pip install Pillow
+
+      - name: Generate logo assets
+        run: python make_logo.py
+        continue-on-error: true   # icns won't work on Windows, that's fine
+
+      - name: Build with PyInstaller
+        run: python -m PyInstaller ZeusPDF.spec --noconfirm
+
+      - name: Verify build output
+        run: |
+          if (!(Test-Path "dist\ZeusPDF\ZeusPDF.exe")) {
+            Write-Error "Build failed — ZeusPDF.exe not found"
+            exit 1
+          }
+          Write-Host "Build OK: dist\ZeusPDF\ZeusPDF.exe"
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Inno Setup installer
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc ZeusPDF_Installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Rename installer with version tag
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $src = "Output\ZeusPDF_Setup_v1.0_Windows.exe"
+          $dst = "Output\ZeusPDF_${tag}_Windows.exe"
+          if (Test-Path $src) { Rename-Item $src $dst }
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZeusPDF-Windows
+          path: Output\ZeusPDF_*_Windows.exe
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────
+  # GitHub Release — attaches both artifacts
+  # ─────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZeusPDF-Mac
+          path: release/
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZeusPDF-Windows
+          path: release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "⚡ Zeus PDF ${{ github.ref_name }}"
+          body: |
+            ## ⚡ Zeus PDF ${{ github.ref_name }}
+
+            Full-featured PDF editor for macOS and Windows.
+
+            ### Downloads
+            | Platform | File |
+            |---|---|
+            | 🍎 macOS (Apple Silicon + Intel) | `ZeusPDF_${{ github.ref_name }}_Mac.dmg` |
+            | 🪟 Windows 10/11 (64-bit) | `ZeusPDF_${{ github.ref_name }}_Windows.exe` |
+
+            ### Installation
+            **macOS:** Open DMG → drag Zeus PDF to Applications → right-click → Open on first launch
+            **Windows:** Run the installer, follow the wizard
+
+            ### What's included
+            - Open, edit, and save PDF files
+            - Form fields (text, checkbox, radio, dropdown, signature)
+            - Annotations (highlight, draw, shapes, stamps, notes)
+            - Text select and copy
+            - Digital signing (visual + certificate-based)
+            - Convert to PNG, JPEG, SVG, HTML, TXT, DOCX, XLSX
+            - Full undo/redo history
+
+            Built by **Vercher Technologies**
+          files: release/*
+          draft: false
+          prerelease: false

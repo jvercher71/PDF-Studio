@@ -16,7 +16,10 @@ a = Analysis(
     ['main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('assets', 'assets'),          # logo PNGs bundled into the app
+        ('pdfstudio', 'pdfstudio'),    # source package (for frozen path resolution)
+    ],
     hiddenimports=[
         # PySide6
         'PySide6',

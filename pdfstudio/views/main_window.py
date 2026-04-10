@@ -521,9 +521,15 @@ class MainWindow(QMainWindow):
     def _about(self) -> None:
         from PySide6.QtGui import QPixmap
         from pathlib import Path
+        import sys
         box = QMessageBox(self)
         box.setWindowTitle("About Zeus PDF")
-        logo_path = Path(__file__).parent.parent.parent / "assets" / "zeuspdf_128.png"
+        # Works both from source and PyInstaller frozen bundle
+        if getattr(sys, "frozen", False):
+            base = Path(sys.executable).parent
+        else:
+            base = Path(__file__).parent.parent.parent
+        logo_path = base / "assets" / "zeuspdf_128.png"
         if logo_path.exists():
             box.setIconPixmap(QPixmap(str(logo_path)).scaled(96, 96))
         box.setText(

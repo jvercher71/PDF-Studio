@@ -1,5 +1,6 @@
 """
-PDF Studio theme — dark professional palette inspired by Adobe/Affinity.
+Zeus PDF theme — dark professional palette inspired by Adobe/Affinity.
+Cross-platform: font stack covers Windows, macOS, and Linux.
 """
 
 # ── Palette ────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ def get_stylesheet() -> str:
 QMainWindow, QDialog, QWidget {{
     background-color: {BG_DARK};
     color: {TEXT};
-    font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", "Ubuntu", Arial, sans-serif;
     font-size: 13px;
 }}
 
