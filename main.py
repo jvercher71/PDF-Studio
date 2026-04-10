@@ -12,7 +12,7 @@ logging.basicConfig(
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("PDF Studio")
+    app.setApplicationName("Zeus PDF")
     app.setApplicationVersion("1.0")
     app.setOrganizationName("Vercher Technologies")
     # AA_UseHighDpiPixmaps is the default in Qt6 — no need to set it

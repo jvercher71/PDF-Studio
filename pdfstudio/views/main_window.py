@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self._model = DocumentModel()
         self._undo = UndoStack(parent=self)
 
-        self.setWindowTitle("PDF Studio")
+        self.setWindowTitle("Zeus PDF")
         self.resize(1280, 860)
         self.setStyleSheet(get_stylesheet())
 
@@ -100,10 +100,13 @@ class MainWindow(QMainWindow):
         self._act_redo = self._action("&Redo",  "Ctrl+Shift+Z", edit_menu)
         edit_menu.addSeparator()
         self._act_cut   = self._action("Cu&t",   "Ctrl+X", edit_menu)
-        self._act_copy  = self._action("&Copy",  "Ctrl+C", edit_menu)
+        self._act_copy  = self._action("&Copy Text",  "Ctrl+C", edit_menu)
         self._act_paste = self._action("&Paste", "Ctrl+V", edit_menu)
         edit_menu.addSeparator()
-        self._act_selall = self._action("Select &All", "Ctrl+A", edit_menu)
+        self._act_selall = self._action("Select &All Text", "Ctrl+A", edit_menu)
+        self._act_text_select_tool = self._action("&Text Select Tool", "Ctrl+T", edit_menu)
+        edit_menu.addSeparator()
+        self._act_convert = self._action("Convert / Export As…", "Ctrl+E", edit_menu)
 
         # ── View ─────────────────────────────────────────────────────────
         view_menu = mb.addMenu("&View")
@@ -133,7 +136,7 @@ class MainWindow(QMainWindow):
 
         # ── Help ──────────────────────────────────────────────────────────
         help_menu = mb.addMenu("&Help")
-        self._action("About PDF Studio", "", help_menu).triggered.connect(self._about)
+        self._action("About Zeus PDF", "", help_menu).triggered.connect(self._about)
 
     # ------------------------------------------------------------------ #
     # Signal Connections
@@ -165,6 +168,11 @@ class MainWindow(QMainWindow):
         # Edit
         self._act_undo.triggered.connect(self._on_undo)
         self._act_redo.triggered.connect(self._on_redo)
+        self._act_copy.triggered.connect(self._canvas.copy_selected_text)
+        self._act_selall.triggered.connect(self._canvas.select_all_text)
+        self._act_text_select_tool.triggered.connect(
+            lambda: self._canvas.set_tool(ToolMode.TEXT_SELECT))
+        self._act_convert.triggered.connect(self._on_convert)
 
         # View
         self._act_zoom_in.triggered.connect(self._canvas.zoom_in)
@@ -326,6 +334,13 @@ class MainWindow(QMainWindow):
         if self._model.is_open:
             self._model.rotate_page(self._current_page_index(), degrees)
 
+    def _on_convert(self) -> None:
+        if not self._model.is_open:
+            return
+        from pdfstudio.views.convert_dialog import ConvertDialog
+        dlg = ConvertDialog(self._model, parent=self)
+        dlg.exec()
+
     def _on_tab_order(self) -> None:
         if not self._model.is_open:
             return
@@ -420,7 +435,8 @@ class MainWindow(QMainWindow):
     def _update_ui_state(self) -> None:
         has_doc = self._model.is_open
         for act in (self._act_save, self._act_saveas, self._act_flat,
-                    self._act_encrypt, self._act_print,
+                    self._act_encrypt, self._act_print, self._act_convert,
+                    self._act_copy, self._act_selall, self._act_text_select_tool,
                     self._act_insert_page, self._act_delete_page,
                     self._act_rot_cw, self._act_rot_ccw,
                     self._act_tab_order, self._act_flatten,
@@ -503,12 +519,23 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def _about(self) -> None:
-        QMessageBox.about(
-            self, "PDF Studio",
-            "<b>PDF Studio v1.0</b><br>"
-            "Built by Vercher Technologies<br><br>"
-            "Full-featured PDF form editor with signing, annotations, and more."
+        from PySide6.QtGui import QPixmap
+        from pathlib import Path
+        box = QMessageBox(self)
+        box.setWindowTitle("About Zeus PDF")
+        logo_path = Path(__file__).parent.parent.parent / "assets" / "zeuspdf_128.png"
+        if logo_path.exists():
+            box.setIconPixmap(QPixmap(str(logo_path)).scaled(96, 96))
+        box.setText(
+            "<b style='font-size:16px;'>⚡ Zeus PDF v1.0</b><br><br>"
+            "Built by <b>Vercher Technologies</b><br><br>"
+            "Full-featured PDF editor — form fields, annotations,<br>"
+            "digital signing, text extraction, and format conversion.<br><br>"
+            "<span style='color:#888;font-size:11px;'>"
+            "Powered by PyMuPDF · PySide6 · pyHanko"
+            "</span>"
         )
+        box.exec()
 
 
 _TOOL_STATUS: dict[ToolMode, str] = {

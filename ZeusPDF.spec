@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for PDF Studio — macOS and Windows
+# PyInstaller spec for Zeus PDF — macOS and Windows
 
 import sys
 from pathlib import Path
@@ -7,8 +7,8 @@ from pathlib import Path
 block_cipher = None
 
 # Optional icon — skip gracefully if not present
-_icns = 'assets/pdfstudio.icns'
-_ico  = 'assets/pdfstudio.ico'
+_icns = 'assets/zeuspdf.icns'
+_ico  = 'assets/zeuspdf.ico'
 ICON_MAC = _icns if Path(_icns).exists() else None
 ICON_WIN = _ico  if Path(_ico).exists()  else None
 
@@ -74,7 +74,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PDFStudio',
+    name='ZeusPDF',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -96,19 +96,19 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='PDFStudio',
+    name='ZeusPDF',
 )
 
 # macOS .app bundle
 if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
-        name='PDF Studio.app',
+        name='Zeus PDF.app',
         icon=ICON_MAC,
-        bundle_identifier='com.verchertechnologies.pdfstudio',
+        bundle_identifier='com.verchertechnologies.zeuspdf',
         info_plist={
-            'CFBundleName': 'PDF Studio',
-            'CFBundleDisplayName': 'PDF Studio',
+            'CFBundleName': 'Zeus PDF',
+            'CFBundleDisplayName': 'Zeus PDF',
             'CFBundleShortVersionString': '1.0',
             'CFBundleVersion': '1.0.0',
             'NSHighResolutionCapable': True,

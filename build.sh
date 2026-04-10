@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# PDF Studio — macOS Build Script
+# Zeus PDF — macOS Build Script
 # Usage: bash build.sh
-# Output: dist/PDFStudio_v1.0_Mac.dmg
+# Output: dist/ZeusPDF_v1.0_Mac.dmg
 
 set -e
 
 VERSION="1.0"
-APP_NAME="PDF Studio"
-DMG_NAME="PDFStudio_v${VERSION}_Mac.dmg"
+APP_NAME="Zeus PDF"
+DMG_NAME="ZeusPDF_v${VERSION}_Mac.dmg"
 
 echo ""
 echo "============================================================"
-echo "  PDF Studio v${VERSION} — macOS Build"
+echo "  Zeus PDF v${VERSION} — macOS Build"
 echo "============================================================"
 echo ""
 
@@ -52,7 +52,7 @@ echo ""
 # ── 3. Validate entry point ────────────────────────────────────────
 echo "[3/7] Validating project..."
 if [ ! -f "main.py" ]; then
-    echo "ERROR: main.py not found. Run this script from the PDF Studio project folder."
+    echo "ERROR: main.py not found. Run this script from the Zeus PDF project folder."
     exit 1
 fi
 echo "Entry point OK."
@@ -68,23 +68,23 @@ echo "Clean done."
 echo ""
 
 # ── 6. Build with PyInstaller ─────────────────────────────────────
-echo "[5/7] Building PDF Studio.app..."
+echo "[5/7] Building Zeus PDF.app..."
 echo "(First build may take 3-6 minutes)"
 echo ""
 
 export MACOSX_DEPLOYMENT_TARGET=12.0
 
-if [ -f "PDFStudio.spec" ]; then
-    $PY -m PyInstaller PDFStudio.spec --noconfirm
+if [ -f "ZeusPDF.spec" ]; then
+    $PY -m PyInstaller ZeusPDF.spec --noconfirm
 else
     # Fallback: build without spec file
     ICONFLAG=""
-    [ -f "assets/pdfstudio.icns" ] && ICONFLAG="--icon=assets/pdfstudio.icns"
+    [ -f "assets/zeuspdf.icns" ] && ICONFLAG="--icon=assets/zeuspdf.icns"
 
     $PY -m PyInstaller \
         --onedir \
         --windowed \
-        --name "PDFStudio" \
+        --name "ZeusPDF" \
         --hidden-import PySide6 \
         --hidden-import PySide6.QtCore \
         --hidden-import PySide6.QtWidgets \
@@ -100,10 +100,10 @@ else
         main.py
 fi
 
-APP_BUNDLE="dist/PDF Studio.app"
+APP_BUNDLE="dist/Zeus PDF.app"
 if [ ! -d "$APP_BUNDLE" ]; then
     # PyInstaller without BUNDLE uses the name directly
-    APP_BUNDLE="dist/PDFStudio.app"
+    APP_BUNDLE="dist/ZeusPDF.app"
 fi
 
 if [ ! -d "$APP_BUNDLE" ]; then
@@ -151,7 +151,7 @@ echo "[7/7] Creating DMG..."
 DMG_PATH="dist/${DMG_NAME}"
 
 hdiutil create \
-    -volname "PDF Studio" \
+    -volname "Zeus PDF" \
     -srcfolder "$APP_BUNDLE" \
     -ov \
     -format UDZO \

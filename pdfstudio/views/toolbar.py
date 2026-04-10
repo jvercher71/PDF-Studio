@@ -13,6 +13,7 @@ from pdfstudio.views.canvas import ToolMode
 # Unicode stand-ins (no icon files needed for MVP)
 _ICONS: dict[ToolMode, str] = {
     ToolMode.SELECT:          "↖",
+    ToolMode.TEXT_SELECT:     "𝐓",
     ToolMode.TEXT_FIELD:      "T",
     ToolMode.CHECKBOX:        "☑",
     ToolMode.RADIO:           "⊙",
@@ -35,6 +36,7 @@ _ICONS: dict[ToolMode, str] = {
 
 _TOOLTIPS: dict[ToolMode, str] = {
     ToolMode.SELECT:          "Select / Move (Esc)",
+    ToolMode.TEXT_SELECT:     "Select Text (Ctrl+T) — drag to select, Ctrl+C to copy",
     ToolMode.TEXT_FIELD:      "Text Field",
     ToolMode.CHECKBOX:        "Checkbox",
     ToolMode.RADIO:           "Radio Button",
@@ -84,8 +86,9 @@ class MainToolbar(QToolBar):
         self._add_action("Redo", "Ctrl+Shift+Z", "Redo")
         self.addSeparator()
 
-        # ── Select ──────────────────────────────────────────────────────
+        # ── Select / Text Select ─────────────────────────────────────────
         self._add_tool(ToolMode.SELECT, checkable=True, checked=True)
+        self._add_tool(ToolMode.TEXT_SELECT, checkable=True)
         self.addSeparator()
 
         # ── Form fields ─────────────────────────────────────────────────

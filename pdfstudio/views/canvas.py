@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from pdfstudio.models.document_model import DocumentModel
+from pdfstudio.views.text_select import TextSelector
 from pdfstudio.engine.fields import FieldDef, FieldType
 from pdfstudio.engine.annotations import AnnotationDef, AnnotationType
 from pdfstudio.commands.base import UndoStack
@@ -37,6 +38,7 @@ MIN_FIELD_SIZE = 20     # minimum drag size to create a field
 
 class ToolMode(Enum):
     SELECT = auto()
+    TEXT_SELECT = auto()   # text extraction / copy-paste
     # Form fields
     TEXT_FIELD = auto()
     CHECKBOX = auto()
@@ -156,6 +158,12 @@ class PDFView(QGraphicsView):
         self._scene = PDFScene(self)
         self.setScene(self._scene)
 
+        # Text selector
+        self._text_selector = TextSelector(self._scene, self)
+        self._text_selector.text_selected.connect(
+            lambda t: self.status_message.emit(f"Selected: {len(t)} chars — Ctrl+C to copy")
+        )
+
         # Ink drawing state
         self._ink_drawing = False
         self._ink_points: list[tuple[float, float]] = []
@@ -201,11 +209,28 @@ class PDFView(QGraphicsView):
 
     def set_tool(self, mode: ToolMode) -> None:
         self._tool = mode
-        cursor = Qt.CrossCursor if mode != ToolMode.SELECT else Qt.ArrowCursor
-        if mode == ToolMode.INK:
+        if mode == ToolMode.SELECT:
+            cursor = Qt.ArrowCursor
+        elif mode == ToolMode.TEXT_SELECT:
+            cursor = Qt.IBeamCursor
+        else:
             cursor = Qt.CrossCursor
         self.setCursor(QCursor(cursor))
+        if mode != ToolMode.TEXT_SELECT:
+            self._text_selector.clear()
         self.tool_changed.emit(mode)
+
+    def copy_selected_text(self) -> bool:
+        """Copy currently selected text to clipboard. Returns True if anything copied."""
+        return self._text_selector.copy_to_clipboard()
+
+    def select_all_text(self) -> None:
+        """Select all text on the current page."""
+        page_rect = self._scene.page_rect(self._current_page)
+        if not page_rect:
+            return
+        fitz_page = self._model._pdf.raw()[self._current_page]
+        self._text_selector.select_all_text(fitz_page, page_rect)
 
     def set_dpi(self, dpi: int) -> None:
         self._dpi = dpi
@@ -304,6 +329,12 @@ class PDFView(QGraphicsView):
             super().mousePressEvent(event)
             return
 
+        if self._tool == ToolMode.TEXT_SELECT:
+            if page_idx >= 0:
+                self._text_selector.begin_drag(scene_pos, page_idx)
+                self._drag_page = page_idx
+            return
+
         if self._tool == ToolMode.INK:
             if page_idx >= 0:
                 self._ink_drawing = True
@@ -324,6 +355,10 @@ class PDFView(QGraphicsView):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         scene_pos = self.mapToScene(event.position().toPoint())
 
+        if self._tool == ToolMode.TEXT_SELECT:
+            self._text_selector.update_drag(scene_pos)
+            return
+
         if self._tool == ToolMode.INK and self._ink_drawing:
             page_idx, local_pos = self._scene.page_at_pos(scene_pos)
             if page_idx >= 0:
@@ -343,6 +378,14 @@ class PDFView(QGraphicsView):
             return
 
         scene_pos = self.mapToScene(event.position().toPoint())
+
+        if self._tool == ToolMode.TEXT_SELECT:
+            page_rect = self._scene.page_rect(self._drag_page) if self._drag_page >= 0 else None
+            if page_rect and self._drag_page >= 0:
+                fitz_page = self._model._pdf.raw()[self._drag_page]
+                self._text_selector.end_drag(scene_pos, fitz_page, page_rect)
+            self._drag_page = -1
+            return
 
         if self._tool == ToolMode.INK and self._ink_drawing:
             self._ink_drawing = False
@@ -383,7 +426,12 @@ class PDFView(QGraphicsView):
             self.zoom_in()
         elif event.matches(QKeySequence.ZoomOut):
             self.zoom_out()
+        elif event.matches(QKeySequence.Copy):
+            self.copy_selected_text()
+        elif event.matches(QKeySequence.SelectAll):
+            self.select_all_text()
         elif event.key() == Qt.Key_Escape:
+            self._text_selector.clear()
             self.set_tool(ToolMode.SELECT)
         else:
             super().keyPressEvent(event)

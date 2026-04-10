@@ -35,7 +35,7 @@ def print_document(doc: fitz.Document, parent: Optional[QWidget] = None,
 
     if preview:
         dlg = QPrintPreviewDialog(printer, parent)
-        dlg.setWindowTitle("Print Preview — PDF Studio")
+        dlg.setWindowTitle("Print Preview — Zeus PDF")
         dlg.paintRequested.connect(lambda p: _render_to_printer(doc, p))
         dlg.exec()
         return True
