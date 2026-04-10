@@ -21,6 +21,7 @@ from pdfstudio.views.sidebar import Sidebar
 from pdfstudio.views.properties import PropertiesPanel
 from pdfstudio.views.signature_dialog import SignatureDialog
 from pdfstudio.views.print_dialog import print_document
+from pdfstudio.views.tab_order_dialog import TabOrderDialog
 from pdfstudio.engine.signer import SignatureEngine, SignatureConfig
 from pdfstudio.utils.theme import get_stylesheet
 
@@ -119,6 +120,11 @@ class MainWindow(QMainWindow):
         self._act_rot_cw   = self._action("Rotate Clockwise",     "", pages_menu)
         self._act_rot_ccw  = self._action("Rotate Counter-CW",    "", pages_menu)
 
+        # ── Forms ─────────────────────────────────────────────────────────
+        forms_menu = mb.addMenu("F&orms")
+        self._act_tab_order = self._action("Edit Tab Order…", "", forms_menu)
+        self._act_flatten   = self._action("Flatten Form Fields…", "", forms_menu)
+
         # ── Sign ──────────────────────────────────────────────────────────
         sign_menu = mb.addMenu("&Sign")
         self._act_sign_visual = self._action("Apply Visual Signature…", "", sign_menu)
@@ -171,6 +177,10 @@ class MainWindow(QMainWindow):
         self._act_delete_page.triggered.connect(self._on_delete_page)
         self._act_rot_cw.triggered.connect(lambda: self._on_rotate(90))
         self._act_rot_ccw.triggered.connect(lambda: self._on_rotate(-90))
+
+        # Forms
+        self._act_tab_order.triggered.connect(self._on_tab_order)
+        self._act_flatten.triggered.connect(self._on_flatten)
 
         # Sign
         self._act_sign_visual.triggered.connect(self._on_sign_visual)
@@ -316,6 +326,12 @@ class MainWindow(QMainWindow):
         if self._model.is_open:
             self._model.rotate_page(self._current_page_index(), degrees)
 
+    def _on_tab_order(self) -> None:
+        if not self._model.is_open:
+            return
+        dlg = TabOrderDialog(self._model, self._current_page_index(), parent=self)
+        dlg.exec()
+
     # ------------------------------------------------------------------ #
     # Slots — Signature
     # ------------------------------------------------------------------ #
@@ -407,6 +423,7 @@ class MainWindow(QMainWindow):
                     self._act_encrypt, self._act_print,
                     self._act_insert_page, self._act_delete_page,
                     self._act_rot_cw, self._act_rot_ccw,
+                    self._act_tab_order, self._act_flatten,
                     self._act_sign_visual, self._act_sign_cert, self._act_verify_sig):
             act.setEnabled(has_doc)
 
