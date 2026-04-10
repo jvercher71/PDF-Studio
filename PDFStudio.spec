@@ -6,6 +6,12 @@ from pathlib import Path
 
 block_cipher = None
 
+# Optional icon — skip gracefully if not present
+_icns = 'assets/pdfstudio.icns'
+_ico  = 'assets/pdfstudio.ico'
+ICON_MAC = _icns if Path(_icns).exists() else None
+ICON_WIN = _ico  if Path(_ico).exists()  else None
+
 a = Analysis(
     ['main.py'],
     pathex=['.'],
@@ -79,7 +85,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/pdfstudio.icns' if sys.platform == 'darwin' else 'assets/pdfstudio.ico',
+    icon=ICON_MAC if sys.platform == 'darwin' else ICON_WIN,
 )
 
 coll = COLLECT(
@@ -98,7 +104,7 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name='PDF Studio.app',
-        icon='assets/pdfstudio.icns',
+        icon=ICON_MAC,
         bundle_identifier='com.verchertechnologies.pdfstudio',
         info_plist={
             'CFBundleName': 'PDF Studio',
