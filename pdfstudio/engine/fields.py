@@ -97,10 +97,20 @@ class FieldEngine:
     def add_field(self, fd: FieldDef) -> bool:
         """Add a new AcroForm field to the document."""
         page = self._doc[fd.page_index]
+
+        # Validate and clamp field rect to the page boundaries.
+        page_rect = page.rect
+        field_rect = fitz.Rect(fd.rect).intersect(page_rect)
+        if field_rect.is_empty:
+            raise ValueError(
+                f"Field rect {fd.rect} is outside or has zero area on "
+                f"page {fd.page_index} (page rect: {page_rect})"
+            )
+
         widget = fitz.Widget()
         widget.field_name = fd.name
         widget.field_type = self._type_to_fitz(fd.field_type)
-        widget.rect = fd.fitz_rect
+        widget.rect = field_rect  # use clamped rect
         widget.field_value = fd.value
         widget.tooltip = fd.tooltip
 

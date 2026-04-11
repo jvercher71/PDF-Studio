@@ -58,10 +58,11 @@ class DocumentModel(QObject):
         self._annots = None
         self.document_changed.emit()
 
-    def save(self, path: str | Path | None = None, flatten: bool = False) -> Optional[Path]:
+    def save(self, path: str | Path | None = None, flatten: bool = False,
+             password: str = "") -> Optional[Path]:
         if not self._pdf.is_open:
             return None
-        saved_path = self._pdf.save(path, flatten=flatten)
+        saved_path = self._pdf.save(path, flatten=flatten, password=password)
         self.modified_changed.emit(False)
         return saved_path
 

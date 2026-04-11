@@ -14,7 +14,7 @@ from typing import Optional
 from PySide6.QtCore import Qt, QPoint, QRect, QSize
 from PySide6.QtGui import (
     QPainter, QPen, QColor, QPixmap, QFont, QFontMetrics,
-    QMouseEvent, QPainterPath,
+    QMouseEvent, QPainterPath, QFontDatabase,
 )
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget,
@@ -27,7 +27,13 @@ from pdfstudio.engine.signer import SignatureConfig
 
 log = logging.getLogger(__name__)
 
-_SCRIPT_FONTS = ["Brush Script MT", "Segoe Script", "Comic Sans MS", "cursive"]
+# Cross-platform cursive font list: first available font wins; fall back to Arial.
+_CURSIVE_FONTS = [
+    "Dancing Script", "Pacifico", "Caveat", "Satisfy", "Great Vibes",
+    "Comic Sans MS", "URW Chancery L", "Brush Script MT", "Segoe Script", "cursive",
+]
+_available_families = set(QFontDatabase.families())
+_SCRIPT_FONTS = [f for f in _CURSIVE_FONTS if f in _available_families] or ["Arial"]
 
 
 # ──────────────────────────────────────────────────────────────────────

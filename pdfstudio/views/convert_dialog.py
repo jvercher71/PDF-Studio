@@ -270,10 +270,13 @@ class ConversionWorker(QThread):
 # ── Dialog ──────────────────────────────────────────────────────────────
 class ConvertDialog(QDialog):
 
-    def __init__(self, model: DocumentModel, parent=None):
+    def __init__(self, model: DocumentModel, parent=None,
+                 has_pdf2docx: bool = True, has_openpyxl: bool = True):
         super().__init__(parent)
         self._model = model
         self._worker: Optional[ConversionWorker] = None
+        self._has_pdf2docx = has_pdf2docx
+        self._has_openpyxl = has_openpyxl
 
         self.setWindowTitle("⚡ Zeus PDF — Convert / Export")
         self.setMinimumWidth(500)
@@ -292,6 +295,13 @@ class ConvertDialog(QDialog):
         self._fmt_combo = QComboBox()
         for label, _ in FORMATS:
             self._fmt_combo.addItem(label)
+        # Disable format options whose optional dependency is not installed.
+        if not self._has_pdf2docx:
+            docx_idx = next(i for i, (_, f) in enumerate(FORMATS) if f == "docx")
+            self._fmt_combo.model().item(docx_idx).setEnabled(False)
+        if not self._has_openpyxl:
+            xlsx_idx = next(i for i, (_, f) in enumerate(FORMATS) if f == "xlsx")
+            self._fmt_combo.model().item(xlsx_idx).setEnabled(False)
         self._fmt_combo.currentIndexChanged.connect(self._on_format_changed)
         fmt_form.addRow("Format:", self._fmt_combo)
         layout.addWidget(fmt_group)

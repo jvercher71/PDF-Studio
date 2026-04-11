@@ -64,10 +64,12 @@ class PDFDocument:
     # Save
     # ------------------------------------------------------------------ #
 
-    def save(self, path: str | Path | None = None, flatten: bool = False) -> Path:
+    def save(self, path: str | Path | None = None, flatten: bool = False,
+             password: str = "") -> Path:
         """
         Save to path (or original path if None).
         flatten=True embeds all form fields and annotations as static content.
+        password, when non-empty, encrypts the output with AES-256.
         """
         self._require_open()
         target = Path(path) if path else self._path
@@ -84,6 +86,11 @@ class PDFDocument:
             "deflate": True,
             "clean": True,
         }
+
+        if password:
+            save_opts["encryption"] = fitz.PDF_ENCRYPT_AES_256
+            save_opts["owner_pw"] = password
+            save_opts["user_pw"] = password
 
         if flatten:
             # Flatten AcroForms — bake fields into page content

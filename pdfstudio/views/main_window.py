@@ -2,6 +2,7 @@
 Main application window — wires together toolbar, canvas, sidebar,
 properties panel, menus, status bar, and the document model.
 """
+import importlib.util
 import logging
 from pathlib import Path
 from typing import Optional
@@ -10,7 +11,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QSplitter,
-    QStatusBar, QWidget, QHBoxLayout, QLabel,
+    QStatusBar, QWidget, QHBoxLayout, QLabel, QLineEdit,
 )
 
 from pdfstudio.models.document_model import DocumentModel
@@ -35,6 +36,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._model = DocumentModel()
         self._undo = UndoStack(parent=self)
+        self._pending_password: str = ""  # set by _on_encrypt; consumed on next save
 
         self.setWindowTitle("Zeus PDF")
         self.resize(1280, 860)
@@ -257,7 +259,8 @@ class MainWindow(QMainWindow):
             self._on_save_as()
             return
         try:
-            self._model.save()
+            self._model.save(password=self._pending_password)
+            self._pending_password = ""
             self._undo.mark_clean()
             self._set_status("Saved.")
         except Exception as e:
@@ -269,7 +272,8 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Save PDF As", "", PDF_FILTER)
         if path:
             try:
-                self._model.save(path)
+                self._model.save(path, password=self._pending_password)
+                self._pending_password = ""
                 self._undo.mark_clean()
                 self._set_status(f"Saved as {Path(path).name}")
             except Exception as e:
@@ -287,9 +291,36 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Flatten Error", str(e))
 
     def _on_encrypt(self) -> None:
-        QMessageBox.information(self, "Password Protect",
-                                "Enter a password to encrypt the saved PDF.")
-        # Full implementation: custom dialog for user/owner passwords + permissions
+        if not self._model.is_open:
+            return
+        from PySide6.QtWidgets import QDialog, QFormLayout, QDialogButtonBox
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Password Protect PDF")
+        dlg.setMinimumWidth(320)
+        form = QFormLayout(dlg)
+        pw1 = QLineEdit()
+        pw1.setEchoMode(QLineEdit.EchoMode.Password)
+        pw1.setPlaceholderText("Enter password")
+        pw2 = QLineEdit()
+        pw2.setEchoMode(QLineEdit.EchoMode.Password)
+        pw2.setPlaceholderText("Confirm password")
+        form.addRow("Password:", pw1)
+        form.addRow("Confirm:", pw2)
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        form.addRow(btns)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        password = pw1.text()
+        if not password:
+            QMessageBox.warning(self, "Password Required", "Please enter a password.")
+            return
+        if pw1.text() != pw2.text():
+            QMessageBox.warning(self, "Password Mismatch", "The passwords do not match.")
+            return
+        self._pending_password = password
+        self._set_status("Password set — will be applied on next Save.")
 
     def _on_print(self) -> None:
         if not self._model.is_open:
@@ -338,7 +369,12 @@ class MainWindow(QMainWindow):
         if not self._model.is_open:
             return
         from pdfstudio.views.convert_dialog import ConvertDialog
-        dlg = ConvertDialog(self._model, parent=self)
+        dlg = ConvertDialog(
+            self._model,
+            has_pdf2docx=importlib.util.find_spec('pdf2docx') is not None,
+            has_openpyxl=importlib.util.find_spec('openpyxl') is not None,
+            parent=self,
+        )
         dlg.exec()
 
     def _on_tab_order(self) -> None:
