@@ -23,11 +23,12 @@ from PySide6.QtWidgets import (
 
 from pdfstudio.models.document_model import DocumentModel
 from pdfstudio.views.text_select import TextSelector
+from pdfstudio.views.overlay_items import OverlayManager
 from pdfstudio.engine.fields import FieldDef, FieldType
 from pdfstudio.engine.annotations import AnnotationDef, AnnotationType
 from pdfstudio.commands.base import UndoStack
-from pdfstudio.commands.field_commands import AddFieldCommand
-from pdfstudio.commands.annotation_commands import AddAnnotationCommand
+from pdfstudio.commands.field_commands import AddFieldCommand, DeleteFieldCommand
+from pdfstudio.commands.annotation_commands import AddAnnotationCommand, DeleteAnnotationCommand
 
 log = logging.getLogger(__name__)
 
@@ -158,6 +159,9 @@ class PDFView(QGraphicsView):
         self._scene = PDFScene(self)
         self.setScene(self._scene)
 
+        # Overlay manager for interactive field/annotation handles
+        self._overlay = OverlayManager(self._scene)
+
         # Text selector
         self._text_selector = TextSelector(self._scene, self)
         self._text_selector.text_selected.connect(
@@ -202,6 +206,8 @@ class PDFView(QGraphicsView):
     def _connect_model(self):
         self._model.document_changed.connect(self._reload_all)
         self._model.page_modified.connect(self._reload_page)
+        self._model.fields_changed.connect(self._reload_page)
+        self._model.annotations_changed.connect(self._reload_page)
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -270,6 +276,7 @@ class PDFView(QGraphicsView):
     # ------------------------------------------------------------------ #
 
     def _reload_all(self) -> None:
+        self._overlay.clear_all()
         self._scene.clear_pages()
         if not self._model.is_open:
             return
@@ -290,10 +297,64 @@ class PDFView(QGraphicsView):
         )
         self._scene.setSceneRect(-PAGE_GAP, -PAGE_GAP, max_w + PAGE_GAP * 2, total_h)
 
+        for i in range(self._model.page_count):
+            self._load_page_overlays(i)
+
     def _reload_page(self, index: int) -> None:
         pixmap = self._model.render_page(index, self._dpi)
         if pixmap:
             self._scene.update_page(index, pixmap)
+        for item in self._overlay.items_on_page(index):
+            self._overlay.remove(item)
+        self._load_page_overlays(index)
+
+    def _load_page_overlays(self, page_idx: int) -> None:
+        """Add interactive overlay items for all fields and annotations on a page."""
+        page_rect = self._scene.page_rect(page_idx)
+        if not page_rect or page_rect.width() == 0 or page_rect.height() == 0:
+            return
+
+        pw, ph = self._model.page_size(page_idx)
+        scale_x = pw / page_rect.width()   # page pts per scene pixel
+        scale_y = ph / page_rect.height()
+        page_orig = page_rect.topLeft()
+
+        def pt_to_scene(x0, y0, x1, y1) -> QRectF:
+            return QRectF(
+                page_orig.x() + x0 / scale_x,
+                page_orig.y() + y0 / scale_y,
+                (x1 - x0) / scale_x,
+                (y1 - y0) / scale_y,
+            )
+
+        for fd in self._model.load_fields(page_idx):
+            sr = pt_to_scene(*fd.rect)
+            self._overlay.add_field(
+                sr, fd.field_type.value, fd.name,
+                scale_x=scale_x, scale_y=scale_y,
+                page_origin=page_orig, page_index=page_idx,
+                on_deleted=lambda it, f=fd: self._on_field_deleted(it, f),
+            )
+
+        for ad, xref in self._model.load_annotations_with_xrefs(page_idx):
+            sr = pt_to_scene(*ad.rect)
+            c = ad.color
+            from PySide6.QtGui import QColor as _QColor
+            color = _QColor(int(c[0] * 255), int(c[1] * 255), int(c[2] * 255), 80)
+            self._overlay.add_annotation(
+                sr, ad.annot_type.value, color,
+                scale_x=scale_x, scale_y=scale_y,
+                page_origin=page_orig, page_index=page_idx,
+                on_deleted=lambda it, a=ad, x=xref: self._on_annot_deleted(it, a, x),
+            )
+
+    def _on_field_deleted(self, item, fd: FieldDef) -> None:
+        self._overlay.remove(item)
+        self._undo.push(DeleteFieldCommand(self._model, fd))
+
+    def _on_annot_deleted(self, item, ad: AnnotationDef, xref: int) -> None:
+        self._overlay.remove(item)
+        self._undo.push(DeleteAnnotationCommand(self._model, ad, xref))
 
     def _set_zoom(self, zoom: float) -> None:
         zoom = max(0.1, min(zoom, 8.0))
@@ -459,7 +520,6 @@ class PDFView(QGraphicsView):
             rect=pt_rect,
         )
         self._undo.push(AddFieldCommand(self._model, fd))
-        self._reload_page(page_idx)
         log.info("Placed %s field '%s' on page %d", field_type.value, name, page_idx)
 
     def _place_annotation(self, page_idx: int, pt_rect: tuple) -> None:
@@ -476,7 +536,6 @@ class PDFView(QGraphicsView):
             stamp_name=self.stamp_name,
         )
         self._undo.push(AddAnnotationCommand(self._model, ad))
-        self._reload_page(page_idx)
 
     def _commit_ink(self, page_idx: int) -> None:
         if not self._ink_points:
@@ -505,4 +564,3 @@ class PDFView(QGraphicsView):
             line_width=self.annot_line_width,
         )
         self._undo.push(AddAnnotationCommand(self._model, ad))
-        self._reload_page(page_idx)

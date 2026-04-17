@@ -106,6 +106,7 @@ class OverlayItem(QGraphicsItem):
         self.signals = OverlaySignals()
         self.scale_x: float = 1.0   # scene-px → page-pt conversion factors
         self.scale_y: float = 1.0
+        self.page_origin: QPointF = QPointF(0, 0)  # scene position of page top-left
 
         # State
         self._active_handle: Optional[int] = None
@@ -269,7 +270,7 @@ class OverlayItem(QGraphicsItem):
 
     def _scene_rect_in_page_pts(self) -> QRectF:
         """Return current rect as page-point coordinates for the PDF engine."""
-        tl = self.pos()
+        tl = self.pos() - self.page_origin
         return QRectF(
             tl.x() * self.scale_x,
             tl.y() * self.scale_y,
@@ -339,6 +340,8 @@ class OverlayManager:
     def add_field(self, scene_rect: QRectF, field_type: str,
                   field_name: str,
                   scale_x: float = 1.0, scale_y: float = 1.0,
+                  page_origin: QPointF = None,
+                  page_index: int = 0,
                   on_moved: Optional[Callable] = None,
                   on_resized: Optional[Callable] = None,
                   on_deleted: Optional[Callable] = None,
@@ -346,6 +349,8 @@ class OverlayManager:
         item = FieldOverlayItem(scene_rect, field_type, field_name)
         item.scale_x = scale_x
         item.scale_y = scale_y
+        item.page_origin = page_origin if page_origin is not None else QPointF(0, 0)
+        item.setData(0, page_index)
         self._wire(item, on_moved, on_resized, on_deleted, on_double_clicked)
         self._scene.addItem(item)
         self._items.append(item)
@@ -354,10 +359,14 @@ class OverlayManager:
     def add_annotation(self, scene_rect: QRectF, annot_type: str,
                        color: QColor = QColor(255, 230, 0, 80),
                        scale_x: float = 1.0, scale_y: float = 1.0,
+                       page_origin: QPointF = None,
+                       page_index: int = 0,
                        on_deleted: Optional[Callable] = None) -> AnnotationOverlayItem:
         item = AnnotationOverlayItem(scene_rect, annot_type, color)
         item.scale_x = scale_x
         item.scale_y = scale_y
+        item.page_origin = page_origin if page_origin is not None else QPointF(0, 0)
+        item.setData(0, page_index)
         if on_deleted:
             item.signals.deleted.connect(on_deleted)
         self._scene.addItem(item)

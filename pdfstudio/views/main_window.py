@@ -544,9 +544,9 @@ class MainWindow(QMainWindow):
         return reply == QMessageBox.Discard
 
     def _ask_password(self) -> tuple[str, bool]:
-        from PySide6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog, QLineEdit
         return QInputDialog.getText(self, "Password", "Enter PDF password:",
-                                    echo=QInputDialog.Password)
+                                    echo=QLineEdit.EchoMode.Password)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self._confirm_discard():

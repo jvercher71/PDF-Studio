@@ -61,6 +61,16 @@ class AnnotationEngine:
                 result.append(ad)
         return result
 
+    def load_page_with_xrefs(self, page_index: int) -> list[tuple["AnnotationDef", int]]:
+        """Load all annotations with their xrefs for interactive editing."""
+        page = self._doc[page_index]
+        result = []
+        for annot in page.annots():
+            ad = self._annot_to_def(annot, page_index)
+            if ad:
+                result.append((ad, annot.xref))
+        return result
+
     def add(self, ad: AnnotationDef) -> Optional[str]:
         """Add an annotation. Returns the annotation's xref as string ID, or None on failure."""
         page = self._doc[ad.page_index]
