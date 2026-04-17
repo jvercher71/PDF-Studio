@@ -197,6 +197,11 @@ class DocumentModel(QObject):
             return []
         return self._annots.load_page(page_index)
 
+    def load_annotations_with_xrefs(self, page_index: int) -> list[tuple[AnnotationDef, int]]:
+        if self._annots is None:
+            return []
+        return self._annots.load_page_with_xrefs(page_index)
+
     def add_annotation(self, ad: AnnotationDef) -> Optional[str]:
         if self._annots is None:
             return None
