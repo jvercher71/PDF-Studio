@@ -174,18 +174,20 @@ def make_all():
         img = master.resize((sz, sz), Image.LANCZOS)
         img.save(iconset / fname, "PNG")
 
-    result = subprocess.run(
-        ["iconutil", "-c", "icns", str(iconset), "-o", str(ASSETS / "zeuspdf.icns")],
-        capture_output=True, text=True
-    )
-    if result.returncode == 0:
-        print(f"  ✅ ICNS: {ASSETS / 'zeuspdf.icns'}")
-    else:
-        print(f"  ⚠️  iconutil failed: {result.stderr.strip()}")
-
-    # Clean up iconset folder
     import shutil
-    shutil.rmtree(iconset, ignore_errors=True)
+    try:
+        result = subprocess.run(
+            ["iconutil", "-c", "icns", str(iconset), "-o", str(ASSETS / "zeuspdf.icns")],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print(f"  ✅ ICNS: {ASSETS / 'zeuspdf.icns'}")
+        else:
+            print(f"  ⚠️  iconutil failed: {result.stderr.strip()}")
+    except FileNotFoundError:
+        print("  ⚠️  iconutil not found (macOS only) — skipping .icns")
+    finally:
+        shutil.rmtree(iconset, ignore_errors=True)
 
     # ── Symlinks / copies for build scripts ───────────────────────
     for name in ("zeuspdf.icns", "zeuspdf.ico"):
