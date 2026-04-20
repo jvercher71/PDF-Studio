@@ -133,12 +133,13 @@ def make_all():
     print(f"  ✅ Scaled PNGs: {', '.join(str(s) for s in SIZES)}")
 
     # ── .ico (Windows) — 16,32,48,64,128,256 ─────────────────────
+    # sizes= must be passed to the master (1024px) so Pillow can
+    # LANCZOS-downscale each layer from full resolution.  Passing a
+    # pre-shrunk source produces only that one tiny layer (806 bytes).
     ico_sizes = [16, 32, 48, 64, 128, 256]
-    ico_imgs = [imgs[s].convert("RGBA") for s in ico_sizes]
     ico_path = ASSETS / "zeuspdf.ico"
-    ico_imgs[0].save(ico_path, format="ICO",
-                     sizes=[(s, s) for s in ico_sizes],
-                     append_images=ico_imgs[1:])
+    master.convert("RGBA").save(ico_path, format="ICO",
+                                sizes=[(s, s) for s in ico_sizes])
     print(f"  ✅ ICO: {ico_path}")
 
     # ── .icns (macOS) via iconutil ─────────────────────────────────

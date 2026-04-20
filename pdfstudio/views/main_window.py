@@ -567,7 +567,8 @@ class MainWindow(QMainWindow):
             base = Path(__file__).parent.parent.parent
         logo_path = base / "assets" / "zeuspdf_128.png"
         if logo_path.exists():
-            box.setIconPixmap(QPixmap(str(logo_path)).scaled(96, 96))
+            box.setIconPixmap(QPixmap(str(logo_path)).scaled(
+                96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         box.setText(
             "<b style='font-size:16px;'>⚡ Zeus PDF v1.0</b><br><br>"
             "Built by <b>Vercher Technologies</b><br><br>"
