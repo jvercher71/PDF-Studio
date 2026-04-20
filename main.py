@@ -20,7 +20,10 @@ def main():
     window = MainWindow()
     window.show()
 
-    # Open file passed as CLI arg
+    # macOS: handle PDFs opened from Finder / "Open With" / dock-drop (Apple Events → QFileOpenEvent)
+    app.fileOpenRequest.connect(window.open_file)
+
+    # Open file passed as CLI arg (Windows file association, command line)
     if len(sys.argv) > 1:
         window.open_file(sys.argv[1])
 

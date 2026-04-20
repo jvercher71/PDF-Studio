@@ -89,10 +89,10 @@ class DocumentModel(QObject):
     @property
     def title(self) -> str:
         if not self._pdf.is_open:
-            return "PDF Studio"
+            return "Zeus PDF"
         name = self._pdf.path.name if self._pdf.path else "Untitled"
         mark = " •" if self._pdf.is_modified else ""
-        return f"{name}{mark} — PDF Studio"
+        return f"{name}{mark} — Zeus PDF"
 
     def page_size(self, index: int) -> tuple[float, float]:
         return self._pdf.get_page_size(index)
