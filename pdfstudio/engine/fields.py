@@ -1,14 +1,24 @@
 """
 AcroForm field engine — read, write, create, delete PDF form fields.
 """
+
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Any
+from typing import Any
 
 import fitz
 
 log = logging.getLogger(__name__)
+
+# PyMuPDF renamed the text-field multiline flag between versions. Tolerate both.
+_FIELD_FLAG_MULTILINE = getattr(
+    fitz,
+    "PDF_TX_FIELD_IS_MULTILINE",
+    getattr(fitz, "PDF_FIELD_IS_MULTILINE", 1 << 12),  # PDF spec value as last resort
+)
+_FIELD_FLAG_REQUIRED = getattr(fitz, "PDF_FIELD_IS_REQUIRED", 1 << 1)
+_FIELD_FLAG_READ_ONLY = getattr(fitz, "PDF_FIELD_IS_READ_ONLY", 1 << 0)
 
 
 class FieldType(Enum):
@@ -36,6 +46,7 @@ _FITZ_TYPE_MAP = {
 @dataclass
 class FieldDef:
     """Portable representation of a form field — not tied to fitz objects."""
+
     name: str
     field_type: FieldType
     page_index: int
@@ -49,8 +60,8 @@ class FieldDef:
     multiline: bool = False
     font_size: float = 12.0
     font_color: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    bg_color: Optional[tuple[float, float, float]] = None
-    border_color: Optional[tuple[float, float, float]] = None
+    bg_color: tuple[float, float, float] | None = None
+    border_color: tuple[float, float, float] | None = None
     tab_order: int = 0
 
     @property
@@ -79,8 +90,7 @@ class FieldEngine:
         """Load fields on a single page."""
         page = self._doc[page_index]
         return [
-            fd for w in page.widgets()
-            if (fd := self._widget_to_def(w, page_index)) is not None
+            fd for w in page.widgets() if (fd := self._widget_to_def(w, page_index)) is not None
         ]
 
     def set_value(self, page_index: int, field_name: str, value: Any) -> bool:
@@ -112,22 +122,34 @@ class FieldEngine:
         widget.field_type = self._type_to_fitz(fd.field_type)
         widget.rect = field_rect  # use clamped rect
         widget.field_value = fd.value
-        widget.tooltip = fd.tooltip
+        # Tooltip: attribute name varies across PyMuPDF versions. Set whichever exists.
+        if fd.tooltip:
+            for attr in ("field_label", "tool_tip", "tooltip"):
+                if hasattr(widget, attr):
+                    try:
+                        setattr(widget, attr, fd.tooltip)
+                        break
+                    except Exception:
+                        pass
 
+        # Combine field flags instead of overwriting so multiple flags coexist.
+        flags = 0
         if fd.field_type == FieldType.TEXT:
             widget.text_fontsize = fd.font_size
             widget.text_color = fd.font_color
             if fd.multiline:
-                widget.field_flags = fitz.PDF_FIELD_IS_MULTILINE
+                flags |= _FIELD_FLAG_MULTILINE
 
         if fd.options and fd.field_type in (FieldType.DROPDOWN, FieldType.LISTBOX, FieldType.RADIO):
             widget.choice_values = fd.options
 
         if fd.required:
-            widget.field_flags = getattr(widget, "field_flags", 0) | fitz.PDF_FIELD_IS_REQUIRED
-
+            flags |= _FIELD_FLAG_REQUIRED
         if fd.read_only:
-            widget.field_flags = getattr(widget, "field_flags", 0) | fitz.PDF_FIELD_IS_READ_ONLY
+            flags |= _FIELD_FLAG_READ_ONLY
+
+        if flags:
+            widget.field_flags = flags
 
         if fd.bg_color:
             widget.fill_color = fd.bg_color
@@ -136,7 +158,9 @@ class FieldEngine:
 
         try:
             page.add_widget(widget)
-            log.info("Added field '%s' (%s) on page %d", fd.name, fd.field_type.value, fd.page_index)
+            log.info(
+                "Added field '%s' (%s) on page %d", fd.name, fd.field_type.value, fd.page_index
+            )
             return True
         except Exception as e:
             log.error("Failed to add field '%s': %s", fd.name, e)
@@ -165,11 +189,19 @@ class FieldEngine:
     # Internal
     # ------------------------------------------------------------------ #
 
-    def _widget_to_def(self, widget: fitz.Widget, page_index: int) -> Optional[FieldDef]:
+    def _widget_to_def(self, widget: fitz.Widget, page_index: int) -> FieldDef | None:
         ft = _FITZ_TYPE_MAP.get(widget.field_type)
         if ft is None:
             return None
         r = widget.rect
+        # Newer PyMuPDF dropped .tooltip — prefer field_label, fall back to tool_tip/tooltip.
+        tooltip = (
+            getattr(widget, "field_label", None)
+            or getattr(widget, "tool_tip", None)
+            or getattr(widget, "tooltip", None)
+            or ""
+        )
+        flags = widget.field_flags or 0
         return FieldDef(
             name=widget.field_name or "",
             field_type=ft,
@@ -177,10 +209,10 @@ class FieldEngine:
             rect=(r.x0, r.y0, r.x1, r.y1),
             value=widget.field_value or "",
             options=list(widget.choice_values or []),
-            tooltip=widget.tooltip or "",
-            read_only=bool(widget.field_flags & fitz.PDF_FIELD_IS_READ_ONLY),
-            required=bool(widget.field_flags & fitz.PDF_FIELD_IS_REQUIRED),
-            multiline=bool(widget.field_flags & fitz.PDF_FIELD_IS_MULTILINE),
+            tooltip=tooltip,
+            read_only=bool(flags & _FIELD_FLAG_READ_ONLY),
+            required=bool(flags & _FIELD_FLAG_REQUIRED),
+            multiline=bool(flags & _FIELD_FLAG_MULTILINE),
             font_size=widget.text_fontsize or 12.0,
         )
 

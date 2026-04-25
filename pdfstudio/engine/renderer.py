@@ -2,12 +2,11 @@
 Page renderer — converts fitz pages to QPixmap for display.
 Caches rendered pages by (index, dpi) to avoid redundant work.
 """
+
 import logging
-from typing import Optional
 
 import fitz
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtCore import QByteArray
 
 log = logging.getLogger(__name__)
 
@@ -52,12 +51,20 @@ class PageRenderer:
         self._cache_order.clear()
 
     def render_thumbnail(self, page_index: int, max_width: int = 150) -> QPixmap:
-        """Render a low-res thumbnail scaled to max_width."""
+        """Render a low-res thumbnail scaled to at most max_width pixels."""
         page = self._doc[page_index]
-        w, h = page.rect.width, page.rect.height
-        scale = max_width / w
-        thumbnail_dpi = int(72 * scale)
-        return self._render_page(page_index, max(36, thumbnail_dpi))
+        w = page.rect.width
+        if w <= 0:
+            return self._render_page(page_index, 36)
+        # Compute exact DPI so the rendered pixmap width == max_width (capped).
+        thumbnail_dpi = max(18, min(300, (max_width / w) * 72))
+        pix = self._render_page(page_index, int(thumbnail_dpi))
+        # Belt and braces — hard-scale if the integer DPI rounded up.
+        if pix.width() > max_width:
+            from PySide6.QtCore import Qt
+
+            pix = pix.scaledToWidth(max_width, Qt.SmoothTransformation)
+        return pix
 
     # ------------------------------------------------------------------ #
     # Internal

@@ -1,0 +1,59 @@
+Zeus PDF — Proprietary License
+
+Copyright © 2026 Vercher Technologies. All rights reserved.
+
+This software and its source code (the "Software") are the proprietary
+property of Vercher Technologies ("the Author"). The Software is
+licensed, not sold.
+
+PERMITTED USE
+-------------
+End users who have lawfully obtained a copy of the compiled Software
+(via the official installer or the official .dmg release) may install
+and use it on their own devices for personal or commercial purposes.
+
+PROHIBITED USE
+--------------
+Without prior written permission from the Author, you may not:
+
+  1. Redistribute, sublicense, sell, rent, lease, or lend the Software
+     or any portion of its source code.
+  2. Reverse-engineer, decompile, or disassemble the compiled Software,
+     except to the extent that applicable law expressly permits despite
+     this limitation.
+  3. Remove or alter any copyright, trademark, or attribution notices.
+  4. Use the Software's source code as the basis for a competing
+     product.
+
+THIRD-PARTY COMPONENTS
+----------------------
+The Software incorporates open-source libraries that are governed by
+their own licenses. Those licenses apply to those components only and
+do not change the terms above for the Software as a whole. The
+significant components are:
+
+  - PySide6           LGPL v3
+  - PyMuPDF (fitz)    AGPL v3 (or commercial license from Artifex)
+  - pyHanko           MIT
+  - pypdf             BSD 3-Clause
+  - Pillow            HPND
+  - openpyxl          MIT
+  - pdf2docx          GPL v3
+
+Users who require redistribution rights or who wish to bundle the
+Software into a derived product should contact the Author about
+commercial licensing.
+
+WARRANTY DISCLAIMER
+-------------------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+CONTACT
+-------
+Vercher Technologies
+support@verchertechnologies.one
+https://verchertechnologies.one

@@ -1,6 +1,7 @@
 """
 Commands for form field operations — all go through UndoStack.
 """
+
 from pdfstudio.commands.base import Command
 from pdfstudio.engine.fields import FieldDef
 from pdfstudio.models.document_model import DocumentModel
@@ -33,8 +34,7 @@ class DeleteFieldCommand(Command):
 
 
 class SetFieldValueCommand(Command):
-    def __init__(self, model: DocumentModel, page_index: int, name: str,
-                 old_value, new_value):
+    def __init__(self, model: DocumentModel, page_index: int, name: str, old_value, new_value):
         super().__init__(f"Edit field '{name}'")
         self._model = model
         self._page = page_index

@@ -7,20 +7,33 @@ Signature dialog — lets the user choose how to sign:
 
 Returns a SignatureConfig ready to hand to SignatureEngine.
 """
+
 import logging
 from pathlib import Path
-from typing import Optional
 
-from PySide6.QtCore import Qt, QPoint, QRect, QSize
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import (
-    QPainter, QPen, QColor, QPixmap, QFont, QFontMetrics,
-    QMouseEvent, QPainterPath, QFontDatabase,
+    QColor,
+    QFont,
+    QFontDatabase,
+    QMouseEvent,
+    QPainter,
+    QPen,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget,
-    QLabel, QLineEdit, QPushButton, QFileDialog, QComboBox,
-    QCheckBox, QDialogButtonBox, QFrame, QSizePolicy,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pdfstudio.engine.signer import SignatureConfig
@@ -29,8 +42,16 @@ log = logging.getLogger(__name__)
 
 # Cross-platform cursive font list: first available font wins; fall back to Arial.
 _CURSIVE_FONTS = [
-    "Dancing Script", "Pacifico", "Caveat", "Satisfy", "Great Vibes",
-    "Comic Sans MS", "URW Chancery L", "Brush Script MT", "Segoe Script", "cursive",
+    "Dancing Script",
+    "Pacifico",
+    "Caveat",
+    "Satisfy",
+    "Great Vibes",
+    "Comic Sans MS",
+    "URW Chancery L",
+    "Brush Script MT",
+    "Segoe Script",
+    "cursive",
 ]
 _available_families = set(QFontDatabase.families())
 _SCRIPT_FONTS = [f for f in _CURSIVE_FONTS if f in _available_families] or ["Arial"]
@@ -39,6 +60,7 @@ _SCRIPT_FONTS = [f for f in _CURSIVE_FONTS if f in _available_families] or ["Ari
 # ──────────────────────────────────────────────────────────────────────
 # Draw pad
 # ──────────────────────────────────────────────────────────────────────
+
 
 class DrawPad(QWidget):
     """Canvas the user draws their signature on."""
@@ -104,8 +126,8 @@ class DrawPad(QWidget):
                 painter.drawLine(path[i - 1], path[i])
         painter.end()
 
-        import io
         from PySide6.QtCore import QBuffer, QIODevice
+
         buf = QBuffer()
         buf.open(QIODevice.WriteOnly)
         pix.save(buf, "PNG")
@@ -115,6 +137,7 @@ class DrawPad(QWidget):
 # ──────────────────────────────────────────────────────────────────────
 # Tab: Draw
 # ──────────────────────────────────────────────────────────────────────
+
 
 class DrawTab(QWidget):
     def __init__(self, parent=None):
@@ -133,7 +156,7 @@ class DrawTab(QWidget):
         layout.addWidget(clear_btn, alignment=Qt.AlignRight)
         layout.addStretch()
 
-    def image_bytes(self) -> Optional[bytes]:
+    def image_bytes(self) -> bytes | None:
         if self._pad.is_empty():
             return None
         return self._pad.to_png_bytes()
@@ -145,6 +168,7 @@ class DrawTab(QWidget):
 # ──────────────────────────────────────────────────────────────────────
 # Tab: Type
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TypeTab(QWidget):
     def __init__(self, parent=None):
@@ -197,7 +221,7 @@ class TypeTab(QWidget):
     def name(self) -> str:
         return self._name_edit.text().strip()
 
-    def image_bytes(self) -> Optional[bytes]:
+    def image_bytes(self) -> bytes | None:
         name = self.name()
         if not name:
             return None
@@ -214,8 +238,8 @@ class TypeTab(QWidget):
         painter.drawText(pix.rect(), Qt.AlignCenter, name)
         painter.end()
 
-        import io
         from PySide6.QtCore import QBuffer, QIODevice
+
         buf = QBuffer()
         buf.open(QIODevice.WriteOnly)
         pix.save(buf, "PNG")
@@ -229,10 +253,11 @@ class TypeTab(QWidget):
 # Tab: Image
 # ──────────────────────────────────────────────────────────────────────
 
+
 class ImageTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._bytes: Optional[bytes] = None
+        self._bytes: bytes | None = None
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
@@ -252,18 +277,22 @@ class ImageTab(QWidget):
 
     def _browse(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Signature Image", "",
-            "Images (*.png *.jpg *.jpeg *.bmp *.gif);;All Files (*)"
+            self,
+            "Select Signature Image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif);;All Files (*)",
         )
         if path:
             self._bytes = Path(path).read_bytes()
             pix = QPixmap(path).scaled(
-                self._preview.width(), self._preview.height(),
-                Qt.KeepAspectRatio, Qt.SmoothTransformation,
+                self._preview.width(),
+                self._preview.height(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
             )
             self._preview.setPixmap(pix)
 
-    def image_bytes(self) -> Optional[bytes]:
+    def image_bytes(self) -> bytes | None:
         return self._bytes
 
     def is_ready(self) -> bool:
@@ -274,10 +303,11 @@ class ImageTab(QWidget):
 # Tab: Certificate
 # ──────────────────────────────────────────────────────────────────────
 
+
 class CertTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._cert_path: Optional[str] = None
+        self._cert_path: str | None = None
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
@@ -311,15 +341,14 @@ class CertTab(QWidget):
 
     def _browse_cert(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Certificate", "",
-            "PKCS#12 (*.p12 *.pfx);;All Files (*)"
+            self, "Select Certificate", "", "PKCS#12 (*.p12 *.pfx);;All Files (*)"
         )
         if path:
             self._cert_path = path
             self._cert_label.setText(Path(path).name)
             self._cert_label.setStyleSheet("color: #D4D4D4;")
 
-    def cert_path(self) -> Optional[str]:
+    def cert_path(self) -> str | None:
         return self._cert_path
 
     def password(self) -> str:
@@ -339,18 +368,18 @@ class CertTab(QWidget):
 # Main Dialog
 # ──────────────────────────────────────────────────────────────────────
 
+
 class SignatureDialog(QDialog):
     """
     Full signature dialog. Call exec() and then read .result_config
     if accepted.
     """
 
-    def __init__(self, page_index: int, rect: tuple,
-                 signer_name: str = "", parent=None):
+    def __init__(self, page_index: int, rect: tuple, signer_name: str = "", parent=None):
         super().__init__(parent)
         self._page_index = page_index
         self._rect = rect
-        self.result_config: Optional[SignatureConfig] = None
+        self.result_config: SignatureConfig | None = None
 
         self.setWindowTitle("Sign Document")
         self.setMinimumWidth(560)
@@ -393,8 +422,9 @@ class SignatureDialog(QDialog):
         active = tabs[tab_idx]
 
         if not active.is_ready():
-            QMessageBox.warning(self, "Incomplete",
-                                "Please complete the signature before applying.")
+            QMessageBox.warning(
+                self, "Incomplete", "Please complete the signature before applying."
+            )
             return
 
         signer_name = self._signer_name.text().strip()

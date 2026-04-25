@@ -1,0 +1,190 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ──────────────────────────────────────────────────────────────────────
+# Project metadata
+# ──────────────────────────────────────────────────────────────────────
+[project]
+name = "zeuspdf"
+version = "1.0.0"
+description = "Zeus PDF — full-featured PDF editor with annotations, forms, and digital signing."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [
+    { name = "Vercher Technologies", email = "support@verchertechnologies.one" },
+]
+keywords = ["pdf", "editor", "annotations", "forms", "signatures", "PySide6"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Multimedia :: Graphics",
+]
+
+# Runtime dependencies — the minimum to launch and edit PDFs.
+dependencies = [
+    "PySide6>=6.5.0",
+    "PyMuPDF>=1.23.0",
+    "pypdf>=3.0.0",
+    "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+# Cryptographic signing (PAdES via pyHanko)
+signing = [
+    "pyHanko>=0.21.0",
+    "pyhanko-certvalidator>=0.26.0",
+    "cryptography>=41.0.0",
+]
+# DOCX export
+docx = [
+    "pdf2docx>=0.5.7",
+]
+# XLSX export
+xlsx = [
+    "openpyxl>=3.1.0",
+]
+# Full user-facing feature set
+full = [
+    "zeuspdf[signing,docx,xlsx]",
+]
+# Developer tooling — linting, typing, testing
+dev = [
+    "pytest>=7.4",
+    "pytest-qt>=4.3",
+    "pytest-cov>=4.1",
+    "pytest-mock>=3.12",
+    "ruff>=0.3",
+    "black>=24.0",
+    "mypy>=1.8",
+    "pre-commit>=3.5",
+]
+# Packaging for end-user distribution
+build = [
+    "pyinstaller>=6.0.0",
+]
+
+[project.scripts]
+zeuspdf = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/jvercher71/PDF-Studio"
+Issues   = "https://github.com/jvercher71/PDF-Studio/issues"
+Releases = "https://github.com/jvercher71/PDF-Studio/releases"
+
+[tool.setuptools]
+packages = ["pdfstudio", "pdfstudio.engine", "pdfstudio.models",
+            "pdfstudio.views", "pdfstudio.commands", "pdfstudio.utils"]
+py-modules = ["main"]
+
+# ──────────────────────────────────────────────────────────────────────
+# Ruff — fast linter (flake8 replacement) + import sorter
+# ──────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["build", "dist", "assets", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",   # handled by formatter
+    "B008",   # Qt APIs use function defaults heavily
+    "SIM108", # ternaries aren't always clearer
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "E402"]
+"pdfstudio/views/*" = ["E402"]   # Qt apps reorder imports for event-loop reasons
+
+# ──────────────────────────────────────────────────────────────────────
+# Black — formatter (Ruff handles imports)
+# ──────────────────────────────────────────────────────────────────────
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+skip-string-normalization = false
+
+# ──────────────────────────────────────────────────────────────────────
+# MyPy — static typing
+# ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+check_untyped_defs = true
+# Qt + fitz have no bundled stubs; don't fail the build on that.
+ignore_missing_imports = true
+exclude = ["build/", "dist/", "assets/"]
+
+# ──────────────────────────────────────────────────────────────────────
+# Pytest — test runner config
+# ──────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    # Pre-import PyMuPDF before pytest's assertion-rewriter takes over.
+    # See _pytest_pre_import.py for the why.
+    "-p",
+    "_pytest_pre_import",
+]
+markers = [
+    "gui: tests that require a QApplication (use qtbot fixture)",
+    "slow: tests that take more than a second",
+    "signing: tests that require pyHanko and cert fixtures",
+]
+# Headless Qt on CI
+qt_api = "pyside6"
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:fitz.*",
+    "ignore::DeprecationWarning:pypdf.*",
+]
+
+# ──────────────────────────────────────────────────────────────────────
+# Coverage — report only on our own code, not Qt internals
+# ──────────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["pdfstudio"]
+omit = [
+    "pdfstudio/views/*",   # UI tests are smoke-only; unit coverage is for engine/commands/models
+    "*/__init__.py",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "\\.\\.\\.",
+]
+show_missing = true
+skip_covered = false

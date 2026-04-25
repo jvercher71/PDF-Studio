@@ -1,4 +1,0 @@
-# Optional — certificate-based PDF signing
-# Install separately if needed:
-pyHanko>=0.21.0
-pyhanko-certvalidator>=0.26.0

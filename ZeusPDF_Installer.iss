@@ -1,16 +1,26 @@
 ; Zeus PDF — Inno Setup Installer Script
-; Produces: ZeusPDF_Setup_v1.0_Windows.exe
-; Build with Inno Setup 6+: iscc ZeusPDF_Installer.iss
+; Produces: ZeusPDF_Setup_v<version>_Windows.exe
+; Build with Inno Setup 6+: iscc /DAppVersion=1.0.0 ZeusPDF_Installer.iss
+;
+; The version is passed in from build_windows.bat, which reads it from
+; pdfstudio/__version__.py — the single source of truth. If you run iscc
+; directly without /DAppVersion, it defaults to "dev".
+
+#ifndef AppVersion
+  #define AppVersion "dev"
+#endif
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName=Zeus PDF
-AppVersion=1.0
-AppVerName=Zeus PDF 1.0
+AppVersion={#AppVersion}
+AppVerName=Zeus PDF {#AppVersion}
 AppPublisher=Vercher Technologies
 AppPublisherURL=https://github.com/jvercher71/PDF-Studio
 AppSupportURL=https://github.com/jvercher71/PDF-Studio/issues
 AppUpdatesURL=https://github.com/jvercher71/PDF-Studio/releases
+VersionInfoVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersion}
 
 ; Install to user profile — no admin rights required
 DefaultDirName={localappdata}\ZeusPDF
@@ -21,7 +31,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 
 ; Output
 OutputDir=Output
-OutputBaseFilename=ZeusPDF_Setup_v1.0_Windows
+OutputBaseFilename=ZeusPDF_Setup_v{#AppVersion}_Windows
 SetupIconFile=assets\zeuspdf.ico
 UninstallDisplayIcon={app}\ZeusPDF.exe
 
@@ -55,7 +65,7 @@ Name: "assocpdf";      Description: "Associate .pdf files with Zeus PDF"; GroupD
 Source: "dist\ZeusPDF\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Zeus PDF";              Filename: "{app}\ZeusPDF.exe"
+Name: "{group}\Zeus PDF";             Filename: "{app}\ZeusPDF.exe"
 Name: "{group}\Uninstall Zeus PDF";   Filename: "{uninstallexe}"
 Name: "{userdesktop}\Zeus PDF";       Filename: "{app}\ZeusPDF.exe"; Tasks: desktopicon
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Zeus PDF"; Filename: "{app}\ZeusPDF.exe"; Tasks: quicklaunch
@@ -63,8 +73,8 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Zeus PDF"; Filenam
 [Registry]
 ; File association for .pdf
 Root: HKCU; Subkey: "Software\Classes\.pdf";                          ValueType: string; ValueName: ""; ValueData: "ZeusPDF.Document"; Flags: uninsdeletevalue; Tasks: assocpdf
-Root: HKCU; Subkey: "Software\Classes\ZeusPDF.Document";            ValueType: string; ValueName: ""; ValueData: "PDF Document"; Flags: uninsdeletekey; Tasks: assocpdf
-Root: HKCU; Subkey: "Software\Classes\ZeusPDF.Document\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\ZeusPDF.exe,0"; Tasks: assocpdf
+Root: HKCU; Subkey: "Software\Classes\ZeusPDF.Document";              ValueType: string; ValueName: ""; ValueData: "PDF Document"; Flags: uninsdeletekey; Tasks: assocpdf
+Root: HKCU; Subkey: "Software\Classes\ZeusPDF.Document\DefaultIcon";  ValueType: string; ValueName: ""; ValueData: "{app}\ZeusPDF.exe,0"; Tasks: assocpdf
 Root: HKCU; Subkey: "Software\Classes\ZeusPDF.Document\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\ZeusPDF.exe"" ""%1"""; Tasks: assocpdf
 
 ; Add to "Open With" for PDF

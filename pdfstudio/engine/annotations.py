@@ -1,10 +1,11 @@
 """
 Annotation engine — highlight, sticky note, shapes, ink, stamps.
 """
+
+import contextlib
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import fitz
 
@@ -32,11 +33,11 @@ class AnnotationDef:
     page_index: int
     rect: tuple[float, float, float, float]  # x0, y0, x1, y1
     content: str = ""
-    color: tuple[float, float, float] = (1.0, 0.9, 0.0)   # RGB 0–1
-    fill_color: Optional[tuple[float, float, float]] = None
+    color: tuple[float, float, float] = (1.0, 0.9, 0.0)  # RGB 0-1
+    fill_color: tuple[float, float, float] | None = None
     opacity: float = 0.5
     line_width: float = 1.5
-    ink_list: Optional[list[list[tuple[float, float]]]] = None  # for ink
+    ink_list: list[list[tuple[float, float]]] | None = None  # for ink
     stamp_name: str = "Draft"
     author: str = ""
 
@@ -71,7 +72,7 @@ class AnnotationEngine:
                 result.append((ad, annot.xref))
         return result
 
-    def add(self, ad: AnnotationDef) -> Optional[str]:
+    def add(self, ad: AnnotationDef) -> str | None:
         """Add an annotation. Returns the annotation's xref as string ID, or None on failure."""
         page = self._doc[ad.page_index]
         try:
@@ -85,7 +86,9 @@ class AnnotationEngine:
                 annot.set_info(content=ad.content)
             annot.update()
             xref = str(annot.xref)
-            log.info("Added %s annotation on page %d (xref=%s)", ad.annot_type.value, ad.page_index, xref)
+            log.info(
+                "Added %s annotation on page %d (xref=%s)", ad.annot_type.value, ad.page_index, xref
+            )
             return xref
         except Exception as e:
             log.error("Failed to add annotation: %s", e)
@@ -104,9 +107,8 @@ class AnnotationEngine:
         page = self._doc[page_index]
         for annot in page.annots():
             if annot.xref == xref:
-                info = annot.info
-                info["content"] = content
-                annot.set_info(**info)
+                # set_info only accepts certain keys; pass content directly.
+                annot.set_info(content=content)
                 annot.update()
                 return True
         return False
@@ -115,14 +117,13 @@ class AnnotationEngine:
     # Internal
     # ------------------------------------------------------------------ #
 
-    def _create_annot(self, page: fitz.Page, ad: AnnotationDef) -> Optional[fitz.Annot]:
+    def _create_annot(self, page: fitz.Page, ad: AnnotationDef) -> fitz.Annot | None:
         r = ad.fitz_rect
         c = ad.color
         fc = ad.fill_color
 
         match ad.annot_type:
             case AnnotationType.HIGHLIGHT:
-                quads = r.get_area() and page.search_for("", quads=True)
                 return page.add_highlight_annot(r)
 
             case AnnotationType.UNDERLINE:
@@ -136,11 +137,16 @@ class AnnotationEngine:
 
             case AnnotationType.TEXT_BOX:
                 annot = page.add_freetext_annot(
-                    r, ad.content or "",
-                    fontsize=12, text_color=c,
+                    r,
+                    ad.content or "",
+                    fontsize=12,
+                    text_color=c,
                     fill_color=fc or (1, 1, 0.8),
-                    border_color=c,
                 )
+                # border_color can fail on free-text annots unless rich-text
+                # mode is enabled in the PDF viewer. Best-effort.
+                with contextlib.suppress(Exception):
+                    annot.set_colors(stroke=c)
                 return annot
 
             case AnnotationType.INK:
@@ -174,13 +180,15 @@ class AnnotationEngine:
                 return annot
 
             case AnnotationType.STAMP:
-                return page.add_stamp_annot(r, stamp=ad.stamp_name)
+                # PyMuPDF expects an integer stamp index, not a string.
+                stamp_const = getattr(fitz, f"STAMP_{ad.stamp_name}", fitz.STAMP_Draft)
+                return page.add_stamp_annot(r, stamp=stamp_const)
 
             case _:
                 log.warning("Unhandled annotation type: %s", ad.annot_type)
                 return None
 
-    def _annot_to_def(self, annot: fitz.Annot, page_index: int) -> Optional[AnnotationDef]:
+    def _annot_to_def(self, annot: fitz.Annot, page_index: int) -> AnnotationDef | None:
         type_map = {
             fitz.PDF_ANNOT_HIGHLIGHT: AnnotationType.HIGHLIGHT,
             fitz.PDF_ANNOT_UNDERLINE: AnnotationType.UNDERLINE,
@@ -200,6 +208,13 @@ class AnnotationEngine:
         info = annot.info
         colors = annot.colors
         stroke = colors.get("stroke") or (1.0, 0.9, 0.0)
+        # fitz returns -1 when opacity isn't explicitly set — normalize.
+        raw_opacity = annot.opacity
+        opacity = (
+            raw_opacity
+            if isinstance(raw_opacity, (int, float)) and 0.0 <= raw_opacity <= 1.0
+            else 1.0
+        )
         return AnnotationDef(
             annot_type=at,
             page_index=page_index,
@@ -207,5 +222,5 @@ class AnnotationEngine:
             content=info.get("content", ""),
             author=info.get("title", ""),
             color=tuple(stroke[:3]) if stroke else (1.0, 0.9, 0.0),
-            opacity=annot.opacity,
+            opacity=opacity,
         )

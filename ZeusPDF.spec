@@ -4,6 +4,13 @@
 import sys
 from pathlib import Path
 
+# Single source of truth for the version — pulled from the package.
+_version_ns: dict = {}
+exec(Path("pdfstudio/__version__.py").read_text(), _version_ns)
+APP_VERSION = _version_ns["__version__"]
+APP_NAME = _version_ns["__app_name__"]
+BUNDLE_ID = _version_ns["__bundle_id__"]
+
 block_cipher = None
 
 # Optional icon — skip gracefully if not present
@@ -106,14 +113,14 @@ coll = COLLECT(
 if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
-        name='Zeus PDF.app',
+        name=f'{APP_NAME}.app',
         icon=ICON_MAC,
-        bundle_identifier='com.verchertechnologies.zeuspdf',
+        bundle_identifier=BUNDLE_ID,
         info_plist={
-            'CFBundleName': 'Zeus PDF',
-            'CFBundleDisplayName': 'Zeus PDF',
-            'CFBundleShortVersionString': '1.0',
-            'CFBundleVersion': '1.0.0',
+            'CFBundleName': APP_NAME,
+            'CFBundleDisplayName': APP_NAME,
+            'CFBundleShortVersionString': APP_VERSION,
+            'CFBundleVersion': APP_VERSION,
             'NSHighResolutionCapable': True,
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': False,

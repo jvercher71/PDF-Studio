@@ -2,29 +2,34 @@
 Main application window — wires together toolbar, canvas, sidebar,
 properties panel, menus, status bar, and the document model.
 """
+
 import importlib.util
 import logging
 from pathlib import Path
-from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QKeySequence, QAction, QCloseEvent
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
-    QMainWindow, QFileDialog, QMessageBox, QSplitter,
-    QStatusBar, QWidget, QHBoxLayout, QLabel, QLineEdit,
+    QFileDialog,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QSplitter,
+    QStatusBar,
 )
 
-from pdfstudio.models.document_model import DocumentModel
 from pdfstudio.commands.base import UndoStack
-from pdfstudio.views.canvas import PDFView, ToolMode
-from pdfstudio.views.toolbar import MainToolbar
-from pdfstudio.views.sidebar import Sidebar
-from pdfstudio.views.properties import PropertiesPanel
-from pdfstudio.views.signature_dialog import SignatureDialog
-from pdfstudio.views.print_dialog import print_document
-from pdfstudio.views.tab_order_dialog import TabOrderDialog
-from pdfstudio.engine.signer import SignatureEngine, SignatureConfig
+from pdfstudio.engine.signer import SignatureEngine
+from pdfstudio.models.document_model import DocumentModel
 from pdfstudio.utils.theme import get_stylesheet
+from pdfstudio.views.canvas import PDFView, ToolMode
+from pdfstudio.views.print_dialog import print_document
+from pdfstudio.views.properties import PropertiesPanel
+from pdfstudio.views.sidebar import Sidebar
+from pdfstudio.views.signature_dialog import SignatureDialog
+from pdfstudio.views.tab_order_dialog import TabOrderDialog
+from pdfstudio.views.toolbar import MainToolbar
 
 log = logging.getLogger(__name__)
 
@@ -83,26 +88,26 @@ class MainWindow(QMainWindow):
 
         # ── File ─────────────────────────────────────────────────────────
         file_menu = mb.addMenu("&File")
-        self._act_new    = self._action("&New",           "Ctrl+N",       file_menu)
-        self._act_open   = self._action("&Open…",         "Ctrl+O",       file_menu)
+        self._act_new = self._action("&New", "Ctrl+N", file_menu)
+        self._act_open = self._action("&Open…", "Ctrl+O", file_menu)
         file_menu.addSeparator()
-        self._act_save   = self._action("&Save",          "Ctrl+S",       file_menu)
-        self._act_saveas = self._action("Save &As…",      "Ctrl+Shift+S", file_menu)
-        self._act_flat   = self._action("Flatten & Save As…", "",         file_menu)
+        self._act_save = self._action("&Save", "Ctrl+S", file_menu)
+        self._act_saveas = self._action("Save &As…", "Ctrl+Shift+S", file_menu)
+        self._act_flat = self._action("Flatten & Save As…", "", file_menu)
         file_menu.addSeparator()
-        self._act_encrypt = self._action("Password Protect…", "",         file_menu)
+        self._act_encrypt = self._action("Password Protect…", "", file_menu)
         file_menu.addSeparator()
-        self._act_print  = self._action("&Print…",        "Ctrl+P",       file_menu)
+        self._act_print = self._action("&Print…", "Ctrl+P", file_menu)
         file_menu.addSeparator()
-        self._act_quit   = self._action("&Quit",          "Ctrl+Q",       file_menu)
+        self._act_quit = self._action("&Quit", "Ctrl+Q", file_menu)
 
         # ── Edit ─────────────────────────────────────────────────────────
         edit_menu = mb.addMenu("&Edit")
-        self._act_undo = self._action("&Undo",  "Ctrl+Z",       edit_menu)
-        self._act_redo = self._action("&Redo",  "Ctrl+Shift+Z", edit_menu)
+        self._act_undo = self._action("&Undo", "Ctrl+Z", edit_menu)
+        self._act_redo = self._action("&Redo", "Ctrl+Shift+Z", edit_menu)
         edit_menu.addSeparator()
-        self._act_cut   = self._action("Cu&t",   "Ctrl+X", edit_menu)
-        self._act_copy  = self._action("&Copy Text",  "Ctrl+C", edit_menu)
+        self._act_cut = self._action("Cu&t", "Ctrl+X", edit_menu)
+        self._act_copy = self._action("&Copy Text", "Ctrl+C", edit_menu)
         self._act_paste = self._action("&Paste", "Ctrl+V", edit_menu)
         edit_menu.addSeparator()
         self._act_selall = self._action("Select &All Text", "Ctrl+A", edit_menu)
@@ -112,29 +117,29 @@ class MainWindow(QMainWindow):
 
         # ── View ─────────────────────────────────────────────────────────
         view_menu = mb.addMenu("&View")
-        self._act_zoom_in    = self._action("Zoom In",     "Ctrl++", view_menu)
-        self._act_zoom_out   = self._action("Zoom Out",    "Ctrl+-", view_menu)
-        self._act_fit_page   = self._action("Fit Page",    "Ctrl+0", view_menu)
-        self._act_fit_width  = self._action("Fit Width",   "Ctrl+2", view_menu)
+        self._act_zoom_in = self._action("Zoom In", "Ctrl++", view_menu)
+        self._act_zoom_out = self._action("Zoom Out", "Ctrl+-", view_menu)
+        self._act_fit_page = self._action("Fit Page", "Ctrl+0", view_menu)
+        self._act_fit_width = self._action("Fit Width", "Ctrl+2", view_menu)
 
         # ── Pages ─────────────────────────────────────────────────────────
         pages_menu = mb.addMenu("&Pages")
-        self._act_insert_page = self._action("Insert Page",     "", pages_menu)
-        self._act_delete_page = self._action("Delete Page",     "", pages_menu)
+        self._act_insert_page = self._action("Insert Page", "", pages_menu)
+        self._act_delete_page = self._action("Delete Page", "", pages_menu)
         pages_menu.addSeparator()
-        self._act_rot_cw   = self._action("Rotate Clockwise",     "", pages_menu)
-        self._act_rot_ccw  = self._action("Rotate Counter-CW",    "", pages_menu)
+        self._act_rot_cw = self._action("Rotate Clockwise", "", pages_menu)
+        self._act_rot_ccw = self._action("Rotate Counter-CW", "", pages_menu)
 
         # ── Forms ─────────────────────────────────────────────────────────
         forms_menu = mb.addMenu("F&orms")
         self._act_tab_order = self._action("Edit Tab Order…", "", forms_menu)
-        self._act_flatten   = self._action("Flatten Form Fields…", "", forms_menu)
+        self._act_flatten = self._action("Flatten Form Fields…", "", forms_menu)
 
         # ── Sign ──────────────────────────────────────────────────────────
         sign_menu = mb.addMenu("&Sign")
         self._act_sign_visual = self._action("Apply Visual Signature…", "", sign_menu)
-        self._act_sign_cert   = self._action("Apply Certificate Signature…", "", sign_menu)
-        self._act_verify_sig  = self._action("Verify Signatures…", "", sign_menu)
+        self._act_sign_cert = self._action("Apply Certificate Signature…", "", sign_menu)
+        self._act_verify_sig = self._action("Verify Signatures…", "", sign_menu)
 
         # ── Help ──────────────────────────────────────────────────────────
         help_menu = mb.addMenu("&Help")
@@ -146,16 +151,21 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         # Toolbar file actions
-        tb_new  = self._toolbar.action("New")
+        tb_new = self._toolbar.action("New")
         tb_open = self._toolbar.action("Open")
         tb_save = self._toolbar.action("Save")
         tb_undo = self._toolbar.action("Undo")
         tb_redo = self._toolbar.action("Redo")
-        if tb_new:  tb_new.triggered.connect(self._on_new)
-        if tb_open: tb_open.triggered.connect(self._on_open)
-        if tb_save: tb_save.triggered.connect(self._on_save)
-        if tb_undo: tb_undo.triggered.connect(self._on_undo)
-        if tb_redo: tb_redo.triggered.connect(self._on_redo)
+        if tb_new:
+            tb_new.triggered.connect(self._on_new)
+        if tb_open:
+            tb_open.triggered.connect(self._on_open)
+        if tb_save:
+            tb_save.triggered.connect(self._on_save)
+        if tb_undo:
+            tb_undo.triggered.connect(self._on_undo)
+        if tb_redo:
+            tb_redo.triggered.connect(self._on_redo)
 
         # Menu file
         self._act_new.triggered.connect(self._on_new)
@@ -173,7 +183,8 @@ class MainWindow(QMainWindow):
         self._act_copy.triggered.connect(self._canvas.copy_selected_text)
         self._act_selall.triggered.connect(self._canvas.select_all_text)
         self._act_text_select_tool.triggered.connect(
-            lambda: self._canvas.set_tool(ToolMode.TEXT_SELECT))
+            lambda: self._canvas.set_tool(ToolMode.TEXT_SELECT)
+        )
         self._act_convert.triggered.connect(self._on_convert)
 
         # View
@@ -213,11 +224,14 @@ class MainWindow(QMainWindow):
 
         # Properties → canvas
         self._properties.annot_color_changed.connect(
-            lambda c: setattr(self._canvas, "annot_color", c))
+            lambda c: setattr(self._canvas, "annot_color", c)
+        )
         self._properties.annot_opacity_changed.connect(
-            lambda v: setattr(self._canvas, "annot_opacity", v))
+            lambda v: setattr(self._canvas, "annot_opacity", v)
+        )
         self._properties.annot_line_width_changed.connect(
-            lambda v: setattr(self._canvas, "annot_line_width", v))
+            lambda v: setattr(self._canvas, "annot_line_width", v)
+        )
 
         # Model
         self._model.document_changed.connect(self._on_document_changed)
@@ -293,7 +307,8 @@ class MainWindow(QMainWindow):
     def _on_encrypt(self) -> None:
         if not self._model.is_open:
             return
-        from PySide6.QtWidgets import QDialog, QFormLayout, QDialogButtonBox
+        from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout
+
         dlg = QDialog(self)
         dlg.setWindowTitle("Password Protect PDF")
         dlg.setMinimumWidth(320)
@@ -355,9 +370,9 @@ class MainWindow(QMainWindow):
         if not self._model.is_open or self._model.page_count <= 1:
             return
         idx = self._current_page_index()
-        reply = QMessageBox.question(self, "Delete Page",
-                                     f"Delete page {idx + 1}?",
-                                     QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.question(
+            self, "Delete Page", f"Delete page {idx + 1}?", QMessageBox.Yes | QMessageBox.No
+        )
         if reply == QMessageBox.Yes:
             self._model.delete_page(idx)
 
@@ -369,10 +384,11 @@ class MainWindow(QMainWindow):
         if not self._model.is_open:
             return
         from pdfstudio.views.convert_dialog import ConvertDialog
+
         dlg = ConvertDialog(
             self._model,
-            has_pdf2docx=importlib.util.find_spec('pdf2docx') is not None,
-            has_openpyxl=importlib.util.find_spec('openpyxl') is not None,
+            has_pdf2docx=importlib.util.find_spec("pdf2docx") is not None,
+            has_openpyxl=importlib.util.find_spec("openpyxl") is not None,
             parent=self,
         )
         dlg.exec()
@@ -406,8 +422,7 @@ class MainWindow(QMainWindow):
         rect = (pw * 0.5 - 120, ph * 0.75, pw * 0.5 + 120, ph * 0.75 + 60)
         self._show_signature_dialog(page_idx, rect, sig_type="cert")
 
-    def _show_signature_dialog(self, page_idx: int, rect: tuple,
-                                sig_type: str = "visual") -> None:
+    def _show_signature_dialog(self, page_idx: int, rect: tuple, sig_type: str = "visual") -> None:
         dlg = SignatureDialog(page_idx, rect, parent=self)
         if sig_type == "cert":
             dlg._tabs.setCurrentIndex(3)
@@ -431,14 +446,15 @@ class MainWindow(QMainWindow):
 
         if ok:
             QMessageBox.information(
-                self, "Signature Applied",
-                f"Signed document saved as:\n{output.name}\n\n"
-                "Opening signed copy…"
+                self,
+                "Signature Applied",
+                f"Signed document saved as:\n{output.name}\n\n" "Opening signed copy…",
             )
             self.open_file(output)
         else:
-            QMessageBox.critical(self, "Signing Failed",
-                                 "Could not apply signature. Check the log for details.")
+            QMessageBox.critical(
+                self, "Signing Failed", "Could not apply signature. Check the log for details."
+            )
 
     def _on_verify(self) -> None:
         if not self._model.path:
@@ -470,13 +486,26 @@ class MainWindow(QMainWindow):
 
     def _update_ui_state(self) -> None:
         has_doc = self._model.is_open
-        for act in (self._act_save, self._act_saveas, self._act_flat,
-                    self._act_encrypt, self._act_print, self._act_convert,
-                    self._act_copy, self._act_selall, self._act_text_select_tool,
-                    self._act_insert_page, self._act_delete_page,
-                    self._act_rot_cw, self._act_rot_ccw,
-                    self._act_tab_order, self._act_flatten,
-                    self._act_sign_visual, self._act_sign_cert, self._act_verify_sig):
+        for act in (
+            self._act_save,
+            self._act_saveas,
+            self._act_flat,
+            self._act_encrypt,
+            self._act_print,
+            self._act_convert,
+            self._act_copy,
+            self._act_selall,
+            self._act_text_select_tool,
+            self._act_insert_page,
+            self._act_delete_page,
+            self._act_rot_cw,
+            self._act_rot_ccw,
+            self._act_tab_order,
+            self._act_flatten,
+            self._act_sign_visual,
+            self._act_sign_cert,
+            self._act_verify_sig,
+        ):
             act.setEnabled(has_doc)
 
         self._toolbar.set_page_count(self._model.page_count if has_doc else 0)
@@ -512,7 +541,7 @@ class MainWindow(QMainWindow):
             try:
                 pct = int(text[:-1])
                 # Convert percentage to zoom factor; baseline 100% = 1.0
-                self._canvas._set_zoom(pct / 100.0)
+                self._canvas.set_zoom(pct / 100.0)
             except ValueError:
                 pass
 
@@ -537,7 +566,8 @@ class MainWindow(QMainWindow):
         if not self._model.is_open or not self._model.is_modified:
             return True
         reply = QMessageBox.question(
-            self, "Unsaved Changes",
+            self,
+            "Unsaved Changes",
             "You have unsaved changes. Discard them?",
             QMessageBox.Discard | QMessageBox.Cancel,
         )
@@ -545,8 +575,10 @@ class MainWindow(QMainWindow):
 
     def _ask_password(self) -> tuple[str, bool]:
         from PySide6.QtWidgets import QInputDialog, QLineEdit
-        return QInputDialog.getText(self, "Password", "Enter PDF password:",
-                                    echo=QLineEdit.EchoMode.Password)
+
+        return QInputDialog.getText(
+            self, "Password", "Enter PDF password:", echo=QLineEdit.EchoMode.Password
+        )
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self._confirm_discard():
@@ -555,11 +587,14 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def _about(self) -> None:
-        from PySide6.QtGui import QPixmap
-        from pathlib import Path
         import sys
+
+        from PySide6.QtGui import QPixmap
+
+        from pdfstudio import __app_name__, __publisher__, __version__
+
         box = QMessageBox(self)
-        box.setWindowTitle("About Zeus PDF")
+        box.setWindowTitle(f"About {__app_name__}")
         # Works both from source and PyInstaller frozen bundle
         if getattr(sys, "frozen", False):
             base = Path(sys.executable).parent
@@ -567,11 +602,12 @@ class MainWindow(QMainWindow):
             base = Path(__file__).parent.parent.parent
         logo_path = base / "assets" / "zeuspdf_128.png"
         if logo_path.exists():
-            box.setIconPixmap(QPixmap(str(logo_path)).scaled(
-                96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            box.setIconPixmap(
+                QPixmap(str(logo_path)).scaled(96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
         box.setText(
-            "<b style='font-size:16px;'>⚡ Zeus PDF v1.0</b><br><br>"
-            "Built by <b>Vercher Technologies</b><br><br>"
+            f"<b style='font-size:16px;'>⚡ {__app_name__} v{__version__}</b><br><br>"
+            f"Built by <b>{__publisher__}</b><br><br>"
             "Full-featured PDF editor — form fields, annotations,<br>"
             "digital signing, text extraction, and format conversion.<br><br>"
             "<span style='color:#888;font-size:11px;'>"
@@ -582,23 +618,23 @@ class MainWindow(QMainWindow):
 
 
 _TOOL_STATUS: dict[ToolMode, str] = {
-    ToolMode.SELECT:          "Select mode — click to select, drag to move",
-    ToolMode.TEXT_FIELD:      "Text Field — drag to place",
-    ToolMode.CHECKBOX:        "Checkbox — drag to place",
-    ToolMode.RADIO:           "Radio Button — drag to place",
-    ToolMode.DROPDOWN:        "Dropdown — drag to place",
-    ToolMode.LISTBOX:         "Listbox — drag to place",
+    ToolMode.SELECT: "Select mode — click to select, drag to move",
+    ToolMode.TEXT_FIELD: "Text Field — drag to place",
+    ToolMode.CHECKBOX: "Checkbox — drag to place",
+    ToolMode.RADIO: "Radio Button — drag to place",
+    ToolMode.DROPDOWN: "Dropdown — drag to place",
+    ToolMode.LISTBOX: "Listbox — drag to place",
     ToolMode.SIGNATURE_FIELD: "Signature Field — drag to place",
-    ToolMode.BUTTON:          "Button — drag to place",
-    ToolMode.HIGHLIGHT:       "Highlight — drag over text",
-    ToolMode.UNDERLINE:       "Underline — drag over text",
-    ToolMode.STRIKEOUT:       "Strikethrough — drag over text",
-    ToolMode.NOTE:            "Sticky Note — click to place",
-    ToolMode.TEXT_BOX:        "Text Box — drag to place",
-    ToolMode.INK:             "Freehand Draw — drag to draw",
-    ToolMode.RECTANGLE:       "Rectangle — drag to draw",
-    ToolMode.ELLIPSE:         "Ellipse — drag to draw",
-    ToolMode.LINE:            "Line — drag to draw",
-    ToolMode.ARROW:           "Arrow — drag to draw",
-    ToolMode.STAMP:           "Stamp — drag to place",
+    ToolMode.BUTTON: "Button — drag to place",
+    ToolMode.HIGHLIGHT: "Highlight — drag over text",
+    ToolMode.UNDERLINE: "Underline — drag over text",
+    ToolMode.STRIKEOUT: "Strikethrough — drag over text",
+    ToolMode.NOTE: "Sticky Note — click to place",
+    ToolMode.TEXT_BOX: "Text Box — drag to place",
+    ToolMode.INK: "Freehand Draw — drag to draw",
+    ToolMode.RECTANGLE: "Rectangle — drag to draw",
+    ToolMode.ELLIPSE: "Ellipse — drag to draw",
+    ToolMode.LINE: "Line — drag to draw",
+    ToolMode.ARROW: "Arrow — drag to draw",
+    ToolMode.STAMP: "Stamp — drag to place",
 }

@@ -9,53 +9,71 @@ Features:
   - Double-click opens the properties/edit dialog
   - Emits signals so the controller can sync changes back to the PDF engine
 """
-import logging
-from typing import Optional, Callable
 
-from PySide6.QtCore import Qt, QRectF, QPointF, QSizeF, Signal, QObject
+import logging
+from collections.abc import Callable
+from typing import ClassVar
+
+from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QFont, QFontMetrics,
-    QCursor, QKeyEvent,
+    QBrush,
+    QColor,
+    QCursor,
+    QFont,
+    QKeyEvent,
+    QPainter,
+    QPen,
 )
 from PySide6.QtWidgets import (
-    QGraphicsItem, QGraphicsObject, QGraphicsRectItem,
-    QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent,
-    QStyleOptionGraphicsItem, QWidget,
+    QGraphicsItem,
+    QGraphicsSceneHoverEvent,
+    QGraphicsSceneMouseEvent,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 log = logging.getLogger(__name__)
 
 # ── Visual constants ───────────────────────────────────────────────────
-HANDLE_SIZE   = 8       # px — handle square size
-HANDLE_COLOR  = QColor("#0066CC")
+HANDLE_SIZE = 8  # px — handle square size
+HANDLE_COLOR = QColor("#0066CC")
 HANDLE_BORDER = QColor("#FFFFFF")
-SEL_BORDER    = QColor("#0066CC")
-SEL_FILL      = QColor(0, 102, 204, 18)
-FIELD_COLORS  = {
-    "text":      QColor(0, 102, 204, 30),
-    "checkbox":  QColor(0, 160, 80, 30),
-    "radio":     QColor(0, 160, 80, 30),
-    "dropdown":  QColor(160, 80, 0, 30),
-    "listbox":   QColor(160, 80, 0, 30),
+SEL_BORDER = QColor("#0066CC")
+SEL_FILL = QColor(0, 102, 204, 18)
+FIELD_COLORS = {
+    "text": QColor(0, 102, 204, 30),
+    "checkbox": QColor(0, 160, 80, 30),
+    "radio": QColor(0, 160, 80, 30),
+    "dropdown": QColor(160, 80, 0, 30),
+    "listbox": QColor(160, 80, 0, 30),
     "signature": QColor(100, 0, 160, 30),
-    "button":    QColor(180, 60, 0, 30),
+    "button": QColor(180, 60, 0, 30),
 }
 FIELD_BORDER_COLORS = {
-    k: QColor(v.red(), v.green(), v.blue(), 180)
-    for k, v in FIELD_COLORS.items()
+    k: QColor(v.red(), v.green(), v.blue(), 180) for k, v in FIELD_COLORS.items()
 }
 
 
 # ── Handle positions (8 handles) ───────────────────────────────────────
 class Handle:
-    TL = 0; TC = 1; TR = 2
-    ML = 3;          MR = 4
-    BL = 5; BC = 6; BR = 7
+    TL = 0
+    TC = 1
+    TR = 2
+    ML = 3
+    MR = 4
+    BL = 5
+    BC = 6
+    BR = 7
 
-    CURSORS = {
-        TL: Qt.SizeFDiagCursor, TC: Qt.SizeVerCursor,  TR: Qt.SizeBDiagCursor,
-        ML: Qt.SizeHorCursor,                           MR: Qt.SizeHorCursor,
-        BL: Qt.SizeBDiagCursor, BC: Qt.SizeVerCursor,  BR: Qt.SizeFDiagCursor,
+    CURSORS: ClassVar[dict[int, Qt.CursorShape]] = {
+        TL: Qt.SizeFDiagCursor,
+        TC: Qt.SizeVerCursor,
+        TR: Qt.SizeBDiagCursor,
+        ML: Qt.SizeHorCursor,
+        MR: Qt.SizeHorCursor,
+        BL: Qt.SizeBDiagCursor,
+        BC: Qt.SizeVerCursor,
+        BR: Qt.SizeFDiagCursor,
     }
 
 
@@ -67,17 +85,25 @@ def _handle_rects(rect: QRectF) -> dict[int, QRectF]:
     cy = rect.center().y()
     x0, y0 = rect.left(), rect.top()
     x1, y1 = rect.right(), rect.bottom()
-    mk = lambda x, y: QRectF(x - hh, y - hh, hs, hs)
+
+    def mk(x: float, y: float) -> QRectF:
+        return QRectF(x - hh, y - hh, hs, hs)
+
     return {
-        Handle.TL: mk(x0, y0), Handle.TC: mk(cx, y0), Handle.TR: mk(x1, y0),
-        Handle.ML: mk(x0, cy),                          Handle.MR: mk(x1, cy),
-        Handle.BL: mk(x0, y1), Handle.BC: mk(cx, y1), Handle.BR: mk(x1, y1),
+        Handle.TL: mk(x0, y0),
+        Handle.TC: mk(cx, y0),
+        Handle.TR: mk(x1, y0),
+        Handle.ML: mk(x0, cy),
+        Handle.MR: mk(x1, cy),
+        Handle.BL: mk(x0, y1),
+        Handle.BC: mk(cx, y1),
+        Handle.BR: mk(x1, y1),
     }
 
 
 # ── Signals carrier (QGraphicsObject doesn't allow multiple inheritance easily) ─
 class OverlaySignals(QObject):
-    moved   = Signal(object, QRectF)   # item, new_rect in page-point coords
+    moved = Signal(object, QRectF)  # item, new_rect in page-point coords
     resized = Signal(object, QRectF)
     deleted = Signal(object)
     double_clicked = Signal(object)
@@ -93,10 +119,14 @@ class OverlayItem(QGraphicsItem):
     and self.scale_y so the item can report changes in page-point space.
     """
 
-    def __init__(self, scene_rect: QRectF, label: str = "",
-                 fill_color: QColor = QColor(0, 102, 204, 30),
-                 border_color: QColor = QColor(0, 102, 204, 180),
-                 parent: QGraphicsItem = None):
+    def __init__(
+        self,
+        scene_rect: QRectF,
+        label: str = "",
+        fill_color: QColor = QColor(0, 102, 204, 30),
+        border_color: QColor = QColor(0, 102, 204, 180),
+        parent: QGraphicsItem = None,
+    ):
         super().__init__(parent)
         self._rect = scene_rect
         self._label = label
@@ -104,20 +134,20 @@ class OverlayItem(QGraphicsItem):
         self._border = border_color
 
         self.signals = OverlaySignals()
-        self.scale_x: float = 1.0   # scene-px → page-pt conversion factors
+        self.scale_x: float = 1.0  # scene-px → page-pt conversion factors
         self.scale_y: float = 1.0
         self.page_origin: QPointF = QPointF(0, 0)  # scene position of page top-left
 
         # State
-        self._active_handle: Optional[int] = None
-        self._drag_start: Optional[QPointF] = None
-        self._drag_orig_rect: Optional[QRectF] = None
+        self._active_handle: int | None = None
+        self._drag_start: QPointF | None = None
+        self._drag_orig_rect: QRectF | None = None
 
         self.setFlags(
-            QGraphicsItem.ItemIsSelectable |
-            QGraphicsItem.ItemIsMovable |
-            QGraphicsItem.ItemSendsGeometryChanges |
-            QGraphicsItem.ItemIsFocusable,
+            QGraphicsItem.ItemIsSelectable
+            | QGraphicsItem.ItemIsMovable
+            | QGraphicsItem.ItemSendsGeometryChanges
+            | QGraphicsItem.ItemIsFocusable,
         )
         self.setAcceptHoverEvents(True)
         self.setPos(scene_rect.topLeft())
@@ -132,12 +162,14 @@ class OverlayItem(QGraphicsItem):
 
     def shape(self):
         from PySide6.QtGui import QPainterPath
+
         path = QPainterPath()
         path.addRect(self.boundingRect())
         return path
 
-    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem,
-              widget: QWidget = None) -> None:
+    def paint(
+        self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: QWidget = None
+    ) -> None:
         painter.setRenderHint(QPainter.Antialiasing)
 
         # Body
@@ -151,9 +183,11 @@ class OverlayItem(QGraphicsItem):
             painter.setPen(QPen(self._border.darker(130)))
             font = QFont("Arial", 9)
             painter.setFont(font)
-            painter.drawText(self._local_rect.adjusted(4, 2, -4, -2),
-                             Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap,
-                             self._label)
+            painter.drawText(
+                self._local_rect.adjusted(4, 2, -4, -2),
+                Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap,
+                self._label,
+            )
 
         # Handles when selected
         if self.isSelected():
@@ -222,10 +256,14 @@ class OverlayItem(QGraphicsItem):
         # Arrow-key nudge (1px per press, 10px with Shift)
         step = 10 if event.modifiers() & Qt.ShiftModifier else 1
         pos = self.pos()
-        if event.key() == Qt.Key_Left:   self.setPos(pos.x() - step, pos.y())
-        elif event.key() == Qt.Key_Right: self.setPos(pos.x() + step, pos.y())
-        elif event.key() == Qt.Key_Up:    self.setPos(pos.x(), pos.y() - step)
-        elif event.key() == Qt.Key_Down:  self.setPos(pos.x(), pos.y() + step)
+        if event.key() == Qt.Key_Left:
+            self.setPos(pos.x() - step, pos.y())
+        elif event.key() == Qt.Key_Right:
+            self.setPos(pos.x() + step, pos.y())
+        elif event.key() == Qt.Key_Up:
+            self.setPos(pos.x(), pos.y() - step)
+        elif event.key() == Qt.Key_Down:
+            self.setPos(pos.x(), pos.y() + step)
         else:
             super().keyPressEvent(event)
             return
@@ -290,12 +328,12 @@ class OverlayItem(QGraphicsItem):
 class FieldOverlayItem(OverlayItem):
     """Overlay for AcroForm fields — color-coded by field type."""
 
-    def __init__(self, scene_rect: QRectF, field_type: str,
-                 field_name: str, parent=None):
-        fill   = FIELD_COLORS.get(field_type, QColor(100, 100, 100, 30))
+    def __init__(self, scene_rect: QRectF, field_type: str, field_name: str, parent=None):
+        fill = FIELD_COLORS.get(field_type, QColor(100, 100, 100, 30))
         border = FIELD_BORDER_COLORS.get(field_type, QColor(100, 100, 100, 180))
-        super().__init__(scene_rect, label=field_name,
-                         fill_color=fill, border_color=border, parent=parent)
+        super().__init__(
+            scene_rect, label=field_name, fill_color=fill, border_color=border, parent=parent
+        )
         self.field_type = field_type
         self.field_name = field_name
 
@@ -305,24 +343,30 @@ class FieldOverlayItem(OverlayItem):
         badge_rect = QRectF(
             self._local_rect.right() - 40,
             self._local_rect.top(),
-            40, 14,
+            40,
+            14,
         )
         if badge_rect.isValid() and self._local_rect.width() > 50:
             painter.setFont(QFont("Arial", 7))
             painter.setPen(QPen(self._border.darker(110)))
-            painter.drawText(badge_rect, Qt.AlignRight | Qt.AlignTop,
-                             self.field_type)
+            painter.drawText(badge_rect, Qt.AlignRight | Qt.AlignTop, self.field_type)
 
 
 # ── Concrete annotation overlay ────────────────────────────────────────
 class AnnotationOverlayItem(OverlayItem):
     """Overlay for annotations (highlight, text box, shapes, etc.)."""
 
-    def __init__(self, scene_rect: QRectF, annot_type: str,
-                 color: QColor = QColor(255, 230, 0, 80), parent=None):
+    def __init__(
+        self,
+        scene_rect: QRectF,
+        annot_type: str,
+        color: QColor = QColor(255, 230, 0, 80),
+        parent=None,
+    ):
         border = QColor(color.red(), color.green(), color.blue(), 200)
-        super().__init__(scene_rect, label=annot_type,
-                         fill_color=color, border_color=border, parent=parent)
+        super().__init__(
+            scene_rect, label=annot_type, fill_color=color, border_color=border, parent=parent
+        )
         self.annot_type = annot_type
 
 
@@ -337,15 +381,20 @@ class OverlayManager:
         self._scene = scene
         self._items: list[OverlayItem] = []
 
-    def add_field(self, scene_rect: QRectF, field_type: str,
-                  field_name: str,
-                  scale_x: float = 1.0, scale_y: float = 1.0,
-                  page_origin: QPointF = None,
-                  page_index: int = 0,
-                  on_moved: Optional[Callable] = None,
-                  on_resized: Optional[Callable] = None,
-                  on_deleted: Optional[Callable] = None,
-                  on_double_clicked: Optional[Callable] = None) -> FieldOverlayItem:
+    def add_field(
+        self,
+        scene_rect: QRectF,
+        field_type: str,
+        field_name: str,
+        scale_x: float = 1.0,
+        scale_y: float = 1.0,
+        page_origin: QPointF = None,
+        page_index: int = 0,
+        on_moved: Callable | None = None,
+        on_resized: Callable | None = None,
+        on_deleted: Callable | None = None,
+        on_double_clicked: Callable | None = None,
+    ) -> FieldOverlayItem:
         item = FieldOverlayItem(scene_rect, field_type, field_name)
         item.scale_x = scale_x
         item.scale_y = scale_y
@@ -356,12 +405,17 @@ class OverlayManager:
         self._items.append(item)
         return item
 
-    def add_annotation(self, scene_rect: QRectF, annot_type: str,
-                       color: QColor = QColor(255, 230, 0, 80),
-                       scale_x: float = 1.0, scale_y: float = 1.0,
-                       page_origin: QPointF = None,
-                       page_index: int = 0,
-                       on_deleted: Optional[Callable] = None) -> AnnotationOverlayItem:
+    def add_annotation(
+        self,
+        scene_rect: QRectF,
+        annot_type: str,
+        color: QColor = QColor(255, 230, 0, 80),
+        scale_x: float = 1.0,
+        scale_y: float = 1.0,
+        page_origin: QPointF = None,
+        page_index: int = 0,
+        on_deleted: Callable | None = None,
+    ) -> AnnotationOverlayItem:
         item = AnnotationOverlayItem(scene_rect, annot_type, color)
         item.scale_x = scale_x
         item.scale_y = scale_y
@@ -389,8 +443,7 @@ class OverlayManager:
 
     def items_on_page(self, page_index: int) -> list[OverlayItem]:
         # Items store their page via setData(0, page_index)
-        return [i for i in self._items
-                if i.data(0) == page_index]
+        return [i for i in self._items if i.data(0) == page_index]
 
     def selected_items(self) -> list[OverlayItem]:
         return [i for i in self._items if i.isSelected()]
@@ -400,9 +453,12 @@ class OverlayManager:
             item.setSelected(False)
 
     @staticmethod
-    def _wire(item: OverlayItem,
-              on_moved, on_resized, on_deleted, on_double_clicked) -> None:
-        if on_moved:         item.signals.moved.connect(on_moved)
-        if on_resized:       item.signals.resized.connect(on_resized)
-        if on_deleted:       item.signals.deleted.connect(on_deleted)
-        if on_double_clicked: item.signals.double_clicked.connect(on_double_clicked)
+    def _wire(item: OverlayItem, on_moved, on_resized, on_deleted, on_double_clicked) -> None:
+        if on_moved:
+            item.signals.moved.connect(on_moved)
+        if on_resized:
+            item.signals.resized.connect(on_resized)
+        if on_deleted:
+            item.signals.deleted.connect(on_deleted)
+        if on_double_clicked:
+            item.signals.double_clicked.connect(on_double_clicked)
