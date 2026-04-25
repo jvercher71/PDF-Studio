@@ -2,20 +2,21 @@
 Print pipeline — renders each PDF page via PyMuPDF at printer DPI
 and paints it onto the QPrinter using QPainter.
 """
+
 import logging
-from typing import Optional
 
 import fitz
-from PySide6.QtCore import Qt, QRectF
-from PySide6.QtGui import QPainter, QPixmap, QImage
-from PySide6.QtPrintSupport import QPrinter, QPrintDialog, QPrintPreviewDialog
-from PySide6.QtWidgets import QWidget, QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage, QPainter, QPixmap
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter, QPrintPreviewDialog
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 log = logging.getLogger(__name__)
 
 
-def print_document(doc: fitz.Document, parent: Optional[QWidget] = None,
-                   preview: bool = False) -> bool:
+def print_document(
+    doc: fitz.Document, parent: QWidget | None = None, preview: bool = False
+) -> bool:
     """
     Print a fitz.Document.
 
@@ -31,7 +32,7 @@ def print_document(doc: fitz.Document, parent: Optional[QWidget] = None,
         return False
 
     printer = QPrinter(QPrinter.HighResolution)
-    printer.setPageMargins(0, 0, 0, 0)   # let page content fill the paper
+    printer.setPageMargins(0, 0, 0, 0)  # let page content fill the paper
 
     if preview:
         dlg = QPrintPreviewDialog(printer, parent)
@@ -50,7 +51,7 @@ def print_document(doc: fitz.Document, parent: Optional[QWidget] = None,
 
 def _render_to_printer(doc: fitz.Document, printer: QPrinter) -> None:
     """Render every page of doc onto printer."""
-    dpi = printer.resolution()       # e.g. 600
+    dpi = printer.resolution()  # e.g. 600
     zoom = dpi / 72.0
 
     painter = QPainter(printer)
@@ -77,8 +78,10 @@ def _render_to_printer(doc: fitz.Document, printer: QPrinter) -> None:
         # Scale pixmap to fit the printer page rect (preserving aspect)
         page_rect = painter.viewport()
         scaled = qpix.scaled(
-            page_rect.width(), page_rect.height(),
-            Qt.KeepAspectRatio, Qt.SmoothTransformation,
+            page_rect.width(),
+            page_rect.height(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation,
         )
 
         # Center on page
@@ -96,7 +99,7 @@ def _page_range(printer: QPrinter, total: int) -> list[int]:
     if printer.printRange() == QPrinter.AllPages:
         return list(range(total))
     elif printer.printRange() == QPrinter.PageRange:
-        first = printer.fromPage() - 1   # QPrinter uses 1-based
+        first = printer.fromPage() - 1  # QPrinter uses 1-based
         last = printer.toPage() - 1
         return list(range(max(0, first), min(total, last + 1)))
     elif printer.printRange() == QPrinter.CurrentPage:

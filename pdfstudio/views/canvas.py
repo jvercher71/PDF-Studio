@@ -5,41 +5,49 @@ interactive overlay items (form fields, annotations, signature fields).
 Tool modes: SELECT, TEXT_FIELD, CHECKBOX, RADIO, DROPDOWN, SIGNATURE,
             HIGHLIGHT, NOTE, RECTANGLE, ELLIPSE, LINE, ARROW, INK, STAMP
 """
+
 import logging
 from enum import Enum, auto
-from typing import Optional
 
-from PySide6.QtCore import (
-    Qt, QRectF, QPointF, Signal, QObject, QTimer
-)
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QPixmap, QCursor, QKeySequence,
-    QWheelEvent, QMouseEvent, QKeyEvent,
+    QBrush,
+    QColor,
+    QCursor,
+    QKeyEvent,
+    QKeySequence,
+    QMouseEvent,
+    QPainter,
+    QPen,
+    QPixmap,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QGraphicsScene, QGraphicsView, QGraphicsPixmapItem,
-    QGraphicsRectItem, QRubberBand, QApplication,
+    QGraphicsPixmapItem,
+    QGraphicsRectItem,
+    QGraphicsScene,
+    QGraphicsView,
 )
 
-from pdfstudio.models.document_model import DocumentModel
-from pdfstudio.views.text_select import TextSelector
-from pdfstudio.views.overlay_items import OverlayManager
-from pdfstudio.engine.fields import FieldDef, FieldType
-from pdfstudio.engine.annotations import AnnotationDef, AnnotationType
+from pdfstudio.commands.annotation_commands import AddAnnotationCommand, DeleteAnnotationCommand
 from pdfstudio.commands.base import UndoStack
 from pdfstudio.commands.field_commands import AddFieldCommand, DeleteFieldCommand
-from pdfstudio.commands.annotation_commands import AddAnnotationCommand, DeleteAnnotationCommand
+from pdfstudio.engine.annotations import AnnotationDef, AnnotationType
+from pdfstudio.engine.fields import FieldDef, FieldType
+from pdfstudio.models.document_model import DocumentModel
+from pdfstudio.views.overlay_items import OverlayManager
+from pdfstudio.views.text_select import TextSelector
 
 log = logging.getLogger(__name__)
 
-PAGE_GAP = 20           # vertical gap between pages in pixels
-PAGE_SHADOW = 6         # drop-shadow size
-MIN_FIELD_SIZE = 20     # minimum drag size to create a field
+PAGE_GAP = 20  # vertical gap between pages in pixels
+PAGE_SHADOW = 6  # drop-shadow size
+MIN_FIELD_SIZE = 20  # minimum drag size to create a field
 
 
 class ToolMode(Enum):
     SELECT = auto()
-    TEXT_SELECT = auto()   # text extraction / copy-paste
+    TEXT_SELECT = auto()  # text extraction / copy-paste
     # Form fields
     TEXT_FIELD = auto()
     CHECKBOX = auto()
@@ -97,7 +105,7 @@ class PDFScene(QGraphicsScene):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._page_items: list[QGraphicsPixmapItem] = []
-        self._page_rects: list[QRectF] = []   # scene coords of each page
+        self._page_rects: list[QRectF] = []  # scene coords of each page
 
     def clear_pages(self):
         self.clear()
@@ -117,7 +125,7 @@ class PDFScene(QGraphicsScene):
         if 0 <= index < len(self._page_items):
             self._page_items[index].setPixmap(pixmap)
 
-    def page_rect(self, index: int) -> Optional[QRectF]:
+    def page_rect(self, index: int) -> QRectF | None:
         if 0 <= index < len(self._page_rects):
             return self._page_rects[index]
         return None
@@ -145,7 +153,7 @@ class PDFView(QGraphicsView):
 
     tool_changed = Signal(ToolMode)
     status_message = Signal(str)
-    page_changed = Signal(int)          # current visible page changed
+    page_changed = Signal(int)  # current visible page changed
 
     def __init__(self, model: DocumentModel, undo_stack: UndoStack, parent=None):
         super().__init__(parent)
@@ -171,11 +179,11 @@ class PDFView(QGraphicsView):
         # Ink drawing state
         self._ink_drawing = False
         self._ink_points: list[tuple[float, float]] = []
-        self._ink_item: Optional[QGraphicsRectItem] = None
+        self._ink_item: QGraphicsRectItem | None = None
 
         # Drag-to-place state
-        self._drag_start: Optional[QPointF] = None
-        self._drag_rect_item: Optional[QGraphicsRectItem] = None
+        self._drag_start: QPointF | None = None
+        self._drag_rect_item: QGraphicsRectItem | None = None
         self._drag_page: int = -1
 
         # Annotation color / properties (set from properties panel)
@@ -183,7 +191,7 @@ class PDFView(QGraphicsView):
         self.annot_opacity = 0.5
         self.annot_line_width = 1.5
         self.stamp_name = "Draft"
-        self.field_counter: dict[str, int] = {}   # for auto-naming new fields
+        self.field_counter: dict[str, int] = {}  # for auto-naming new fields
 
         self._setup_view()
         self._connect_model()
@@ -291,9 +299,12 @@ class PDFView(QGraphicsView):
         # Set scene rect with padding
         total_h = y
         max_w = max(
-            (self._scene.page_rect(i).width() for i in range(self._model.page_count)
-             if self._scene.page_rect(i)),
-            default=0
+            (
+                self._scene.page_rect(i).width()
+                for i in range(self._model.page_count)
+                if self._scene.page_rect(i)
+            ),
+            default=0,
         )
         self._scene.setSceneRect(-PAGE_GAP, -PAGE_GAP, max_w + PAGE_GAP * 2, total_h)
 
@@ -315,7 +326,7 @@ class PDFView(QGraphicsView):
             return
 
         pw, ph = self._model.page_size(page_idx)
-        scale_x = pw / page_rect.width()   # page pts per scene pixel
+        scale_x = pw / page_rect.width()  # page pts per scene pixel
         scale_y = ph / page_rect.height()
         page_orig = page_rect.topLeft()
 
@@ -330,9 +341,13 @@ class PDFView(QGraphicsView):
         for fd in self._model.load_fields(page_idx):
             sr = pt_to_scene(*fd.rect)
             self._overlay.add_field(
-                sr, fd.field_type.value, fd.name,
-                scale_x=scale_x, scale_y=scale_y,
-                page_origin=page_orig, page_index=page_idx,
+                sr,
+                fd.field_type.value,
+                fd.name,
+                scale_x=scale_x,
+                scale_y=scale_y,
+                page_origin=page_orig,
+                page_index=page_idx,
                 on_deleted=lambda it, f=fd: self._on_field_deleted(it, f),
             )
 
@@ -340,11 +355,16 @@ class PDFView(QGraphicsView):
             sr = pt_to_scene(*ad.rect)
             c = ad.color
             from PySide6.QtGui import QColor as _QColor
+
             color = _QColor(int(c[0] * 255), int(c[1] * 255), int(c[2] * 255), 80)
             self._overlay.add_annotation(
-                sr, ad.annot_type.value, color,
-                scale_x=scale_x, scale_y=scale_y,
-                page_origin=page_orig, page_index=page_idx,
+                sr,
+                ad.annot_type.value,
+                color,
+                scale_x=scale_x,
+                scale_y=scale_y,
+                page_origin=page_orig,
+                page_index=page_idx,
                 on_deleted=lambda it, a=ad, x=xref: self._on_annot_deleted(it, a, x),
             )
 
@@ -355,6 +375,10 @@ class PDFView(QGraphicsView):
     def _on_annot_deleted(self, item, ad: AnnotationDef, xref: int) -> None:
         self._overlay.remove(item)
         self._undo.push(DeleteAnnotationCommand(self._model, ad, xref))
+
+    def set_zoom(self, zoom: float) -> None:
+        """Public setter for zoom factor (1.0 = 100%)."""
+        self._set_zoom(zoom)
 
     def _set_zoom(self, zoom: float) -> None:
         zoom = max(0.1, min(zoom, 8.0))
@@ -378,8 +402,9 @@ class PDFView(QGraphicsView):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MiddleButton:
             self.setDragMode(QGraphicsView.ScrollHandDrag)
-            fake = QMouseEvent(event.type(), event.position(), Qt.LeftButton,
-                               Qt.LeftButton, event.modifiers())
+            fake = QMouseEvent(
+                event.type(), event.position(), Qt.LeftButton, Qt.LeftButton, event.modifiers()
+            )
             super().mousePressEvent(fake)
             return
 
@@ -464,7 +489,11 @@ class PDFView(QGraphicsView):
             self._drag_rect_item = None
 
             page_rect = self._scene.page_rect(self._drag_page)
-            if page_rect and drag_rect.width() > MIN_FIELD_SIZE and drag_rect.height() > MIN_FIELD_SIZE:
+            if (
+                page_rect
+                and drag_rect.width() > MIN_FIELD_SIZE
+                and drag_rect.height() > MIN_FIELD_SIZE
+            ):
                 # Convert scene rect → page points
                 scale_x = self._model.page_size(self._drag_page)[0] / page_rect.width()
                 scale_y = self._model.page_size(self._drag_page)[1] / page_rect.height()

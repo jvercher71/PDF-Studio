@@ -2,20 +2,29 @@
 Properties panel — shows context-sensitive controls for the selected
 tool, field, or annotation.
 """
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QLabel, QLineEdit,
-    QCheckBox, QSpinBox, QDoubleSpinBox, QComboBox,
-    QColorDialog, QPushButton, QFrame, QSizePolicy, QScrollArea,
+    QColorDialog,
+    QDoubleSpinBox,
+    QFormLayout,
+    QFrame,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pdfstudio.engine.fields import FieldDef, FieldType
-from pdfstudio.utils.theme import TEXT_L, BORDER
+from pdfstudio.engine.fields import FieldDef
+from pdfstudio.utils.theme import BORDER, TEXT_L
 
 
 class ColorButton(QPushButton):
     """Button that shows and picks a color."""
+
     color_changed = Signal(QColor)
 
     def __init__(self, color: QColor = QColor(255, 230, 0), parent=None):
@@ -53,7 +62,7 @@ class PropertiesPanel(QWidget):
     """Right-side properties panel."""
 
     # Emitted when a property changes — caller decides what to do
-    field_property_changed = Signal(str, object)   # property_name, value
+    field_property_changed = Signal(str, object)  # property_name, value
     annot_color_changed = Signal(QColor)
     annot_opacity_changed = Signal(float)
     annot_line_width_changed = Signal(float)

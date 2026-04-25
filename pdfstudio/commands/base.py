@@ -2,8 +2,9 @@
 Command pattern base — every undoable action is a Command.
 UndoStack manages the history and exposes undo/redo.
 """
+
 from abc import ABC, abstractmethod
-from typing import Optional
+
 from PySide6.QtCore import QObject, Signal
 
 
@@ -33,14 +34,15 @@ class UndoStack(QObject):
     Signals:
         changed — emitted whenever the stack changes (for updating menu state)
     """
+
     changed = Signal()
 
     def __init__(self, max_history: int = 200, parent=None):
         super().__init__(parent)
         self._stack: list[Command] = []
-        self._index: int = -1          # points to last executed command
+        self._index: int = -1  # points to last executed command
         self._max_history = max_history
-        self._is_clean: bool = True    # True = no changes since last save
+        self._is_clean: bool = True  # True = no changes since last save
 
     def push(self, command: Command) -> None:
         """Execute command and push it onto the stack."""
@@ -49,16 +51,16 @@ class UndoStack(QObject):
         command.execute()
         self._stack.append(command)
 
-        # Trim to max
+        # Trim to max history, keeping the most recent commands
         if len(self._stack) > self._max_history:
-            self._stack.pop(0)
-        else:
-            self._index = len(self._stack) - 1
+            overflow = len(self._stack) - self._max_history
+            self._stack = self._stack[overflow:]
+        self._index = len(self._stack) - 1
 
         self._is_clean = False
         self.changed.emit()
 
-    def undo(self) -> Optional[str]:
+    def undo(self) -> str | None:
         """Undo the last command. Returns its description or None if nothing to undo."""
         if not self.can_undo:
             return None
@@ -68,7 +70,7 @@ class UndoStack(QObject):
         self.changed.emit()
         return command.description
 
-    def redo(self) -> Optional[str]:
+    def redo(self) -> str | None:
         """Redo the next command. Returns its description or None if nothing to redo."""
         if not self.can_redo:
             return None
@@ -87,6 +89,7 @@ class UndoStack(QObject):
     def mark_clean(self) -> None:
         """Call after save — resets the modified tracking."""
         self._is_clean = True
+        self.changed.emit()
 
     @property
     def can_undo(self) -> bool:

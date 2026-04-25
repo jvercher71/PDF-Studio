@@ -1,11 +1,13 @@
 @echo off
 REM Zeus PDF — Windows Build Script
 REM Usage: Double-click or run from project folder
-REM Output: dist\ZeusPDF_Setup_v1.0_Windows.exe
+REM Output: dist\ZeusPDF_Setup_v<version>_Windows.exe
+REM Version is read from pdfstudio\__version__.py (single source of truth).
 
 setlocal EnableDelayedExpansion
 
-set VERSION=1.0
+REM Pull version from the package — avoids drift across build scripts.
+for /f "delims=" %%v in ('python -c "import runpy; ns=runpy.run_path('pdfstudio/__version__.py'); print(ns['__version__'])"') do set VERSION=%%v
 set APP_NAME=Zeus PDF
 set EXE_NAME=ZeusPDF_Setup_v%VERSION%_Windows.exe
 
@@ -111,7 +113,7 @@ if "!ISCC!"=="" (
     echo Download from https://jrsoftware.org/isdl.php
     echo The raw app is at dist\ZeusPDF\ZeusPDF.exe
 ) else (
-    "!ISCC!" ZeusPDF_Installer.iss
+    "!ISCC!" "/DAppVersion=%VERSION%" ZeusPDF_Installer.iss
     if errorlevel 1 (
         echo WARNING: Inno Setup build failed.
     ) else (

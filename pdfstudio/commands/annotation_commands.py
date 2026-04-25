@@ -1,6 +1,7 @@
 """
 Commands for annotation operations.
 """
+
 import fitz
 
 from pdfstudio.commands.base import Command

@@ -9,19 +9,25 @@ Supported output formats:
   DOCX         — via pdf2docx (installed on demand)
   XLSX         — table extraction via PyMuPDF, written with openpyxl
 """
+
 import logging
-import io
 from pathlib import Path
-from typing import Optional
 
 import fitz
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QComboBox, QCheckBox, QSpinBox, QProgressBar, QFileDialog,
-    QDialogButtonBox, QFrame, QGroupBox, QFormLayout,
-    QMessageBox, QScrollArea, QWidget, QSizePolicy,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
 
 from pdfstudio.models.document_model import DocumentModel
@@ -29,25 +35,31 @@ from pdfstudio.models.document_model import DocumentModel
 log = logging.getLogger(__name__)
 
 FORMATS = [
-    ("PNG Image (*.png)",       "png"),
-    ("JPEG Image (*.jpg)",      "jpg"),
-    ("SVG Vector (*.svg)",      "svg"),
-    ("HTML Document (*.html)",  "html"),
-    ("Plain Text (*.txt)",      "txt"),
-    ("Word Document (*.docx)",  "docx"),
+    ("PNG Image (*.png)", "png"),
+    ("JPEG Image (*.jpg)", "jpg"),
+    ("SVG Vector (*.svg)", "svg"),
+    ("HTML Document (*.html)", "html"),
+    ("Plain Text (*.txt)", "txt"),
+    ("Word Document (*.docx)", "docx"),
     ("Excel Workbook (*.xlsx)", "xlsx"),
 ]
 
 
 # ── Background conversion worker ────────────────────────────────────────
 class ConversionWorker(QThread):
-    progress   = Signal(int, int)    # current, total
-    finished   = Signal(str)         # output path
-    error      = Signal(str)         # error message
+    progress = Signal(int, int)  # current, total
+    finished = Signal(str)  # output path
+    error = Signal(str)  # error message
 
-    def __init__(self, doc: fitz.Document, fmt: str,
-                 output_path: str, dpi: int,
-                 page_range: list[int], parent=None):
+    def __init__(
+        self,
+        doc: fitz.Document,
+        fmt: str,
+        output_path: str,
+        dpi: int,
+        page_range: list[int],
+        parent=None,
+    ):
         super().__init__(parent)
         self._doc = doc
         self._fmt = fmt
@@ -109,8 +121,7 @@ class ConversionWorker(QThread):
         for i, page_idx in enumerate(self._pages):
             page = self._doc[page_idx]
             svg = page.get_svg_image(matrix=fitz.Identity)
-            dest = out if is_single else \
-                out.parent / f"{out.stem}_p{page_idx + 1:03d}.svg"
+            dest = out if is_single else out.parent / f"{out.stem}_p{page_idx + 1:03d}.svg"
             dest.write_text(svg, encoding="utf-8")
             self.progress.emit(i + 1, total)
 
@@ -176,7 +187,8 @@ class ConversionWorker(QThread):
 
         # pdf2docx works on a file path, not a fitz doc
         # We need to save a temp PDF of just the selected pages
-        import tempfile, shutil
+        import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp_path = tmp.name
 
@@ -200,7 +212,7 @@ class ConversionWorker(QThread):
     def _export_xlsx(self):
         try:
             import openpyxl
-            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
         except ImportError:
             self.error.emit(
                 "openpyxl is not installed.\n\n"
@@ -212,10 +224,10 @@ class ConversionWorker(QThread):
         wb.remove(wb.active)  # remove default sheet
         total = len(self._pages)
 
-        header_font  = Font(bold=True, color="FFFFFF")
-        header_fill  = PatternFill("solid", fgColor="0F1A2D")
-        cell_align   = Alignment(wrap_text=True, vertical="top")
-        thin_border  = Border(
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill("solid", fgColor="0F1A2D")
+        cell_align = Alignment(wrap_text=True, vertical="top")
+        thin_border = Border(
             bottom=Side(style="thin", color="CCCCCC"),
             right=Side(style="thin", color="CCCCCC"),
         )
@@ -228,7 +240,6 @@ class ConversionWorker(QThread):
             tables = page.find_tables()
             if tables and tables.tables:
                 for t_idx, table in enumerate(tables.tables):
-                    df = table.to_pandas() if hasattr(table, "to_pandas") else None
                     rows = table.extract()
                     if not rows:
                         continue
@@ -244,7 +255,7 @@ class ConversionWorker(QThread):
                             if r_idx == 0:
                                 c.font = header_font
                                 c.fill = header_fill
-                    ws.append([])   # blank row between tables
+                    ws.append([])  # blank row between tables
             else:
                 # No tables — dump text blocks line by line
                 blocks = page.get_text("blocks")
@@ -270,11 +281,16 @@ class ConversionWorker(QThread):
 # ── Dialog ──────────────────────────────────────────────────────────────
 class ConvertDialog(QDialog):
 
-    def __init__(self, model: DocumentModel, parent=None,
-                 has_pdf2docx: bool = True, has_openpyxl: bool = True):
+    def __init__(
+        self,
+        model: DocumentModel,
+        parent=None,
+        has_pdf2docx: bool = True,
+        has_openpyxl: bool = True,
+    ):
         super().__init__(parent)
         self._model = model
-        self._worker: Optional[ConversionWorker] = None
+        self._worker: ConversionWorker | None = None
         self._has_pdf2docx = has_pdf2docx
         self._has_openpyxl = has_openpyxl
 
@@ -388,11 +404,11 @@ class ConvertDialog(QDialog):
 
     def _update_info(self):
         infos = {
-            "png":  "Exports each page as a PNG image. Multiple pages → numbered files.",
-            "jpg":  "Exports each page as a JPEG image (92% quality).",
-            "svg":  "Exports pages as scalable vector graphics.",
+            "png": "Exports each page as a PNG image. Multiple pages → numbered files.",
+            "jpg": "Exports each page as a JPEG image (92% quality).",
+            "svg": "Exports pages as scalable vector graphics.",
             "html": "Exports text and basic layout as an HTML file.",
-            "txt":  "Extracts all text content as plain text.",
+            "txt": "Extracts all text content as plain text.",
             "docx": "Converts to Word format. Requires: pip install pdf2docx",
             "xlsx": "Extracts tables/text into Excel. Requires: pip install openpyxl",
         }
@@ -418,12 +434,9 @@ class ConvertDialog(QDialog):
 
     def _on_convert(self):
         fmt = self._current_fmt()
-        ext_map = dict(FORMATS)
         # Build save dialog filter from selected format
         save_filter = FORMATS[self._fmt_combo.currentIndex()][0]
-        output, _ = QFileDialog.getSaveFileName(
-            self, "Save As", "", save_filter
-        )
+        output, _ = QFileDialog.getSaveFileName(self, "Save As", "", save_filter)
         if not output:
             return
 
@@ -455,10 +468,7 @@ class ConvertDialog(QDialog):
     def _on_done(self, output_path: str):
         self._progress.setVisible(False)
         self._convert_btn.setEnabled(True)
-        QMessageBox.information(
-            self, "Conversion Complete",
-            f"✅  Saved to:\n{output_path}"
-        )
+        QMessageBox.information(self, "Conversion Complete", f"✅  Saved to:\n{output_path}")
         self.accept()
 
     def _on_error(self, msg: str):

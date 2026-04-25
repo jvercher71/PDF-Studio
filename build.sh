@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Zeus PDF — macOS Build Script
 # Usage: bash build.sh
-# Output: dist/ZeusPDF_v1.0_Mac.dmg
+# Output: dist/ZeusPDF_v<version>_Mac.dmg
+# Version is read from pdfstudio/__version__.py (single source of truth).
 
-set -e
+set -euo pipefail
 
-VERSION="1.0"
+# Pull version from the package — avoids drift.
+VERSION=$(python3 -c "import runpy; ns=runpy.run_path('pdfstudio/__version__.py'); print(ns['__version__'])")
 APP_NAME="Zeus PDF"
 DMG_NAME="ZeusPDF_v${VERSION}_Mac.dmg"
 

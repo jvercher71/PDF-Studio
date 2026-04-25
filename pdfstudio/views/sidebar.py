@@ -1,12 +1,17 @@
 """
 Sidebar — thumbnail strip on the left + fields tree on the second tab.
 """
+
 import logging
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QPixmap
+
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QTabWidget, QListWidget,
-    QListWidgetItem, QLabel, QSizePolicy,
+    QListWidget,
+    QListWidgetItem,
+    QSizePolicy,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pdfstudio.models.document_model import DocumentModel

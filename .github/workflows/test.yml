@@ -1,0 +1,75 @@
+name: test
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      # Qt needs these libs to run even under offscreen on Ubuntu runners.
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-sync1 libxcb-xfixes0 \
+            libxcb-xkb1 libxkbcommon-x11-0
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,signing]"
+
+      - name: Lint with ruff
+        run: ruff check pdfstudio tests
+        continue-on-error: true   # Soft-fail until legacy code is cleaned up.
+
+      - name: Check formatting with black
+        run: black --check pdfstudio tests main.py
+        continue-on-error: true   # Soft-fail until legacy code is reformatted.
+
+      - name: Type-check with mypy
+        run: mypy pdfstudio
+        continue-on-error: true   # Start soft — tighten once baseline is clean.
+
+      - name: Run pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest --cov=pdfstudio --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: warn

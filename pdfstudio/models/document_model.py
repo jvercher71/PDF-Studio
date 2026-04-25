@@ -3,16 +3,16 @@ Document model — the single source of truth for the open document.
 Owns the PDFDocument, FieldEngine, AnnotationEngine, and PageRenderer.
 Emits Qt signals so the UI can react to changes without polling.
 """
+
 import logging
 from pathlib import Path
-from typing import Optional
 
 from PySide6.QtCore import QObject, Signal
 
+from pdfstudio.engine.annotations import AnnotationDef, AnnotationEngine
 from pdfstudio.engine.document import PDFDocument
+from pdfstudio.engine.fields import FieldDef, FieldEngine
 from pdfstudio.engine.renderer import PageRenderer
-from pdfstudio.engine.fields import FieldEngine, FieldDef
-from pdfstudio.engine.annotations import AnnotationEngine, AnnotationDef
 
 log = logging.getLogger(__name__)
 
@@ -32,9 +32,9 @@ class DocumentModel(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._pdf = PDFDocument()
-        self._renderer: Optional[PageRenderer] = None
-        self._fields: Optional[FieldEngine] = None
-        self._annots: Optional[AnnotationEngine] = None
+        self._renderer: PageRenderer | None = None
+        self._fields: FieldEngine | None = None
+        self._annots: AnnotationEngine | None = None
 
     # ------------------------------------------------------------------ #
     # Document lifecycle
@@ -58,8 +58,9 @@ class DocumentModel(QObject):
         self._annots = None
         self.document_changed.emit()
 
-    def save(self, path: str | Path | None = None, flatten: bool = False,
-             password: str = "") -> Optional[Path]:
+    def save(
+        self, path: str | Path | None = None, flatten: bool = False, password: str = ""
+    ) -> Path | None:
         if not self._pdf.is_open:
             return None
         saved_path = self._pdf.save(path, flatten=flatten, password=password)
@@ -83,7 +84,7 @@ class DocumentModel(QObject):
         return self._pdf.page_count
 
     @property
-    def path(self) -> Optional[Path]:
+    def path(self) -> Path | None:
         return self._pdf.path
 
     @property
@@ -202,7 +203,7 @@ class DocumentModel(QObject):
             return []
         return self._annots.load_page_with_xrefs(page_index)
 
-    def add_annotation(self, ad: AnnotationDef) -> Optional[str]:
+    def add_annotation(self, ad: AnnotationDef) -> str | None:
         if self._annots is None:
             return None
         xref = self._annots.add(ad)

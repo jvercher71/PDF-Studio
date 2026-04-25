@@ -2,10 +2,12 @@
 PDF document engine — open, save, page operations.
 All file I/O lives here. Nothing above this layer touches fitz directly.
 """
+
+import contextlib
 import logging
+import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import fitz  # PyMuPDF
 
@@ -16,8 +18,8 @@ class PDFDocument:
     """Wraps a fitz.Document and exposes clean operations."""
 
     def __init__(self):
-        self._doc: Optional[fitz.Document] = None
-        self._path: Optional[Path] = None
+        self._doc: fitz.Document | None = None
+        self._path: Path | None = None
         self._modified: bool = False
 
     # ------------------------------------------------------------------ #
@@ -31,10 +33,9 @@ class PDFDocument:
             raise FileNotFoundError(f"File not found: {path}")
 
         doc = fitz.open(str(path))
-        if doc.needs_pass:
-            if not doc.authenticate(password):
-                doc.close()
-                raise ValueError("Incorrect password.")
+        if doc.needs_pass and not doc.authenticate(password):
+            doc.close()
+            raise ValueError("Incorrect password.")
 
         if self._doc is not None:
             self._doc.close()
@@ -64,20 +65,27 @@ class PDFDocument:
     # Save
     # ------------------------------------------------------------------ #
 
-    def save(self, path: str | Path | None = None, flatten: bool = False,
-             password: str = "") -> Path:
+    def save(
+        self, path: str | Path | None = None, flatten: bool = False, password: str = ""
+    ) -> Path:
         """
         Save to path (or original path if None).
         flatten=True embeds all form fields and annotations as static content.
         password, when non-empty, encrypts the output with AES-256.
+
+        When overwriting the currently open file, this writes atomically via
+        a sibling temp file so a crash can never corrupt the original. A
+        timestamped .bak is created first.
         """
         self._require_open()
         target = Path(path) if path else self._path
         if target is None:
             raise ValueError("No path specified and document was never saved.")
 
-        # Backup original before overwriting
-        if target.exists() and target == self._path:
+        overwriting_self = target.exists() and target == self._path
+
+        # Backup first
+        if overwriting_self:
             backup = target.with_suffix(".bak")
             shutil.copy2(target, backup)
 
@@ -98,7 +106,20 @@ class PDFDocument:
                 page.clean_contents()
             save_opts["expand"] = True
 
-        self._doc.save(str(target), **save_opts)
+        if overwriting_self:
+            # Modern PyMuPDF refuses non-incremental save to the currently
+            # open file. Write to a temp sibling and atomically rename.
+            tmp_target = target.with_suffix(target.suffix + ".tmp")
+            try:
+                self._doc.save(str(tmp_target), **save_opts)
+                os.replace(tmp_target, target)
+            finally:
+                if tmp_target.exists():
+                    with contextlib.suppress(OSError):
+                        tmp_target.unlink()
+        else:
+            self._doc.save(str(target), **save_opts)
+
         self._path = target
         self._modified = False
         log.info("Saved: %s (flatten=%s)", target, flatten)
@@ -112,8 +133,13 @@ class PDFDocument:
         log.info("Copy saved: %s", target)
         return target
 
-    def encrypt(self, path: str | Path, user_password: str, owner_password: str = "",
-                permissions: int = fitz.PDF_PERM_PRINT | fitz.PDF_PERM_COPY) -> Path:
+    def encrypt(
+        self,
+        path: str | Path,
+        user_password: str,
+        owner_password: str = "",
+        permissions: int = fitz.PDF_PERM_PRINT | fitz.PDF_PERM_COPY,
+    ) -> Path:
         """Save an encrypted copy."""
         self._require_open()
         target = Path(path)
@@ -138,7 +164,7 @@ class PDFDocument:
         return len(self._doc) if self._doc else 0
 
     @property
-    def path(self) -> Optional[Path]:
+    def path(self) -> Path | None:
         return self._path
 
     @property
@@ -152,7 +178,7 @@ class PDFDocument:
     def get_page(self, index: int) -> fitz.Page:
         self._require_open()
         if not (0 <= index < self.page_count):
-            raise IndexError(f"Page index {index} out of range (0–{self.page_count - 1})")
+            raise IndexError(f"Page index {index} out of range (0-{self.page_count - 1})")
         return self._doc[index]
 
     def get_page_size(self, index: int) -> tuple[float, float]:

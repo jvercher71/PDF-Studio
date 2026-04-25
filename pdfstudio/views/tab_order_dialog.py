@@ -2,15 +2,24 @@
 Tab Order Editor — lets the user drag form fields into the desired
 tab order. Saving writes the updated order back to the PDF via FieldEngine.
 """
-import logging
-from typing import Optional
 
-from PySide6.QtCore import Qt, QMimeData
-from PySide6.QtGui import QDrag, QColor, QFont
+import logging
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QListWidgetItem, QAbstractItemView,
-    QDialogButtonBox, QMessageBox, QComboBox, QFrame,
+    QAbstractItemView,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
 )
 
 from pdfstudio.engine.fields import FieldDef
@@ -80,10 +89,10 @@ class TabOrderDialog(QDialog):
 
         # Move buttons
         btn_row = QHBoxLayout()
-        self._btn_up   = QPushButton("▲  Move Up")
+        self._btn_up = QPushButton("▲  Move Up")
         self._btn_down = QPushButton("▼  Move Down")
-        self._btn_top  = QPushButton("⇈  To Top")
-        self._btn_bot  = QPushButton("⇊  To Bottom")
+        self._btn_top = QPushButton("⇈  To Top")
+        self._btn_bot = QPushButton("⇊  To Bottom")
         for btn in (self._btn_up, self._btn_down, self._btn_top, self._btn_bot):
             btn.setObjectName("secondary")
             btn_row.addWidget(btn)
@@ -134,9 +143,12 @@ class TabOrderDialog(QDialog):
 
         # Color badge by field type
         colors = {
-            "text": "#0066CC", "checkbox": "#16A34A",
-            "radio": "#16A34A", "dropdown": "#D97706",
-            "listbox": "#D97706", "signature": "#7C3AED",
+            "text": "#0066CC",
+            "checkbox": "#16A34A",
+            "radio": "#16A34A",
+            "dropdown": "#D97706",
+            "listbox": "#D97706",
+            "signature": "#7C3AED",
             "button": "#DC2626",
         }
         c = QColor(colors.get(fd.field_type.value, "#555555"))
@@ -149,7 +161,7 @@ class TabOrderDialog(QDialog):
         """Rewrite the order numbers after a drag/move."""
         for i in range(self._list.count()):
             item = self._list.item(i)
-            fd: Optional[FieldDef] = item.data(Qt.UserRole)
+            fd: FieldDef | None = item.data(Qt.UserRole)
             if fd:
                 item.setText(f"  {i + 1}.   {fd.name}   [{fd.field_type.value}]")
 
@@ -193,7 +205,7 @@ class TabOrderDialog(QDialog):
         updated = 0
         for i in range(self._list.count()):
             item = self._list.item(i)
-            fd: Optional[FieldDef] = item.data(Qt.UserRole)
+            fd: FieldDef | None = item.data(Qt.UserRole)
             if fd is None:
                 continue
             # We store tab order as field value isn't a native PDF concept —
@@ -204,11 +216,11 @@ class TabOrderDialog(QDialog):
             updated += 1
 
         if updated:
-            log.info("Tab order updated for %d fields on page %d",
-                     updated, self._page_index + 1)
+            log.info("Tab order updated for %d fields on page %d", updated, self._page_index + 1)
             QMessageBox.information(
-                self, "Tab Order Applied",
+                self,
+                "Tab Order Applied",
                 f"Tab order set for {updated} field(s) on page {self._page_index + 1}.\n"
-                "Save the document to persist this change."
+                "Save the document to persist this change.",
             )
         self.accept()

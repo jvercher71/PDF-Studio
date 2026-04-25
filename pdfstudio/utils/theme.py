@@ -4,29 +4,29 @@ Cross-platform: uses system fonts on macOS, elegant fallbacks on Windows/Linux.
 """
 
 # ── Palette ────────────────────────────────────────────────────────────
-BG_APP      = "#F5F5F7"    # standard macOS window background
-BG_PANEL    = "#F5F5F7"    # sidebar / properties panel bg
-BG_TOOLBAR  = "#FFFFFF"    # toolbar bg / main white elements
-BG_CARD     = "#FFFFFF"    # card / input bg
-BORDER      = "#E5E5EA"    # subtle border for dividers
-BORDER_D    = "#C7C7CC"    # slightly darker border for inputs
+BG_APP = "#F5F5F7"  # standard macOS window background
+BG_PANEL = "#F5F5F7"  # sidebar / properties panel bg
+BG_TOOLBAR = "#FFFFFF"  # toolbar bg / main white elements
+BG_CARD = "#FFFFFF"  # card / input bg
+BORDER = "#E5E5EA"  # subtle border for dividers
+BORDER_D = "#C7C7CC"  # slightly darker border for inputs
 
-ACCENT      = "#007AFF"    # Apple signature blue
-ACCENT_H    = "#0062CC"    # hover state
-ACCENT_P    = "#0051AB"    # pressed state
+ACCENT = "#007AFF"  # Apple signature blue
+ACCENT_H = "#0062CC"  # hover state
+ACCENT_P = "#0051AB"  # pressed state
 
-SUCCESS     = "#34C759"    # Apple green
-WARNING     = "#FF9500"    # Apple orange
-DANGER      = "#FF3B30"    # Apple red
+SUCCESS = "#34C759"  # Apple green
+WARNING = "#FF9500"  # Apple orange
+DANGER = "#FF3B30"  # Apple red
 
-TEXT        = "#1D1D1F"    # absolute primary solid text (almost black)
-TEXT_L      = "#86868B"    # secondary text (silvery gray)
-TEXT_D      = "#000000"    # maximum contrast text
-WHITE       = "#FFFFFF"
+TEXT = "#1D1D1F"  # absolute primary solid text (almost black)
+TEXT_L = "#86868B"  # secondary text (silvery gray)
+TEXT_D = "#000000"  # maximum contrast text
+WHITE = "#FFFFFF"
 
-TOOL_ACTIVE = "#E8F0FE"    # extremely soft blue highlight for tools
-TOOL_ACTIVE_TEXT = "#007AFF" # active tool icon color
-TOOL_HOVER  = "#E5E5EA"    # soft gray hover
+TOOL_ACTIVE = "#E8F0FE"  # extremely soft blue highlight for tools
+TOOL_ACTIVE_TEXT = "#007AFF"  # active tool icon color
+TOOL_HOVER = "#E5E5EA"  # soft gray hover
 
 
 def get_stylesheet() -> str:

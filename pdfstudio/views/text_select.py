@@ -10,22 +10,23 @@ Adds a TEXT_SELECT tool mode to the canvas. When active:
 Uses PyMuPDF page.get_text("words") for word-level extraction.
 page.get_text("blocks") for paragraph-aware extraction when Ctrl+A (select all).
 """
+
 import logging
-from typing import Optional
 
 import fitz
-from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QObject
+from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QClipboard,
-    QMouseEvent, QKeyEvent,
+    QBrush,
+    QColor,
+    QPen,
 )
-from PySide6.QtWidgets import QApplication, QGraphicsRectItem, QGraphicsItem
+from PySide6.QtWidgets import QApplication, QGraphicsItem, QGraphicsRectItem
 
 log = logging.getLogger(__name__)
 
 # Highlight color for selected text
 SEL_HIGHLIGHT = QColor(0, 120, 212, 55)
-SEL_BORDER    = QColor(0, 90, 180, 120)
+SEL_BORDER = QColor(0, 90, 180, 120)
 
 
 class WordHighlight(QGraphicsRectItem):
@@ -46,7 +47,7 @@ class TextSelector(QObject):
     Attach to the PDFView; it calls our methods on mouse events.
     """
 
-    text_selected = Signal(str)   # emitted when selection changes
+    text_selected = Signal(str)  # emitted when selection changes
 
     def __init__(self, scene, parent=None):
         super().__init__(parent)
@@ -55,9 +56,9 @@ class TextSelector(QObject):
         self._selected_text: str = ""
 
         # Drag state
-        self._drag_start: Optional[QPointF] = None
+        self._drag_start: QPointF | None = None
         self._drag_page: int = -1
-        self._rubber: Optional[QGraphicsRectItem] = None
+        self._rubber: QGraphicsRectItem | None = None
 
     # ------------------------------------------------------------------ #
     # Public
@@ -78,8 +79,7 @@ class TextSelector(QObject):
             rect = QRectF(self._drag_start, scene_pos).normalized()
             self._rubber.setRect(rect)
 
-    def end_drag(self, scene_pos: QPointF, fitz_page: fitz.Page,
-                 page_scene_rect: QRectF) -> str:
+    def end_drag(self, scene_pos: QPointF, fitz_page: fitz.Page, page_scene_rect: QRectF) -> str:
         """
         Finish drag, extract words in selection, highlight them.
         Returns the selected text string.
@@ -115,7 +115,7 @@ class TextSelector(QObject):
         )
 
         # Extract words intersecting the selection
-        words = fitz_page.get_text("words")   # (x0,y0,x1,y1, word, block, line, word_idx)
+        words = fitz_page.get_text("words")  # (x0,y0,x1,y1, word, block, line, word_idx)
         selected_words = []
         for w in words:
             wr = fitz.Rect(w[0], w[1], w[2], w[3])
@@ -127,23 +127,20 @@ class TextSelector(QObject):
             return ""
 
         # Draw highlights
-        for wr, text in selected_words:
+        for wr, _text in selected_words:
             # Convert page pt → scene coords
             scene_x0 = page_scene_rect.left() + wr.x0 / sx
-            scene_y0 = page_scene_rect.top()  + wr.y0 / sy
+            scene_y0 = page_scene_rect.top() + wr.y0 / sy
             scene_x1 = page_scene_rect.left() + wr.x1 / sx
-            scene_y1 = page_scene_rect.top()  + wr.y1 / sy
-            h = WordHighlight(QRectF(scene_x0, scene_y0,
-                                     scene_x1 - scene_x0,
-                                     scene_y1 - scene_y0))
+            scene_y1 = page_scene_rect.top() + wr.y1 / sy
+            h = WordHighlight(QRectF(scene_x0, scene_y0, scene_x1 - scene_x0, scene_y1 - scene_y0))
             self._scene.addItem(h)
             self._highlights.append(h)
 
         # Build text (respect reading order — words are already in order)
         self._selected_text = " ".join(w[1] for w in selected_words)
         self.text_selected.emit(self._selected_text)
-        log.debug("Selected %d words: %r…", len(selected_words),
-                  self._selected_text[:60])
+        log.debug("Selected %d words: %r…", len(selected_words), self._selected_text[:60])
         return self._selected_text
 
     def select_all_text(self, fitz_page: fitz.Page, page_scene_rect: QRectF) -> str:
